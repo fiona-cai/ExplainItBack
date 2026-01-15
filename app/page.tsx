@@ -1,6 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Copy, Check, Loader2, Upload, Github, FileText, AlertCircle } from 'lucide-react'
 
 interface Output {
   technicalExplanation: string
@@ -90,249 +98,260 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">ExplainItBack</h1>
-          <p className="text-gray-600">Transform your project into clear explanations, resume bullets, and interview pitches</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">ExplainItBack</h1>
+          <p className="text-muted-foreground">Transform your project into clear explanations, resume bullets, and interview pitches</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-8">
-          {/* Input Method Tabs */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Input Method
-            </label>
-            <div className="flex space-x-2 border-b border-gray-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setInputMethod('github')
-                  setError(null)
-                }}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  inputMethod === 'github'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                GitHub Repo
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setInputMethod('text')
-                  setError(null)
-                }}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  inputMethod === 'text'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Text Description
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setInputMethod('upload')
-                  setError(null)
-                }}
-                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                  inputMethod === 'upload'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Upload Project
-              </button>
-            </div>
-          </div>
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Project Input</CardTitle>
+            <CardDescription>Choose how you'd like to provide your project information</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit}>
+              <Tabs value={inputMethod} onValueChange={(value) => {
+                setInputMethod(value as InputMethod)
+                setError(null)
+              }} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger value="github" className="flex items-center gap-2">
+                    <Github className="h-4 w-4" />
+                    GitHub Repo
+                  </TabsTrigger>
+                  <TabsTrigger value="text" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Text Description
+                  </TabsTrigger>
+                  <TabsTrigger value="upload" className="flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    Upload Project
+                  </TabsTrigger>
+                </TabsList>
 
-          {/* Text Input */}
-          {inputMethod === 'text' && (
-            <div className="mb-6">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Project Description
-              </label>
-              <textarea
-                id="description"
-                rows={8}
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                placeholder="Paste your raw project description here..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                required
-              />
-            </div>
-          )}
-
-          {/* GitHub URL Input */}
-          {inputMethod === 'github' && (
-            <div className="mb-6">
-              <label htmlFor="githubUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                GitHub Repository URL
-              </label>
-              <input
-                id="githubUrl"
-                type="url"
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="https://github.com/username/repo"
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-              <p className="mt-2 text-sm text-gray-500">
-                Paste the full GitHub repository URL. We'll fetch the README and repository information.
-              </p>
-            </div>
-          )}
-
-          {/* File Upload Input */}
-          {inputMethod === 'upload' && (
-            <div className="mb-6">
-              <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Project Files
-              </label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
-                <div className="space-y-1 text-center">
-                  <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
-                    stroke="currentColor"
-                    fill="none"
-                    viewBox="0 0 48 48"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <div className="flex text-sm text-gray-600">
-                    <label
-                      htmlFor="fileUpload"
-                      className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                    >
-                      <span>Upload a file</span>
-                      <input
-                        id="fileUpload"
-                        name="fileUpload"
-                        type="file"
-                        className="sr-only"
-                        onChange={handleFileChange}
-                        accept=".zip,.tar,.tar.gz"
-                        required={inputMethod === 'upload'}
-                      />
+                <TabsContent value="github" className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="githubUrl" className="text-sm font-medium">
+                      GitHub Repository URL
                     </label>
-                    <p className="pl-1">or drag and drop</p>
+                    <Input
+                      id="githubUrl"
+                      type="url"
+                      value={githubUrl}
+                      onChange={(e) => setGithubUrl(e.target.value)}
+                      placeholder="https://github.com/username/repo"
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Paste the full GitHub repository URL. We'll fetch the README and repository information.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500">ZIP, TAR, or TAR.GZ up to 50MB</p>
-                  {uploadedFile && (
-                    <p className="text-sm text-green-600 mt-2">✓ {uploadedFile.name}</p>
-                  )}
+                </TabsContent>
+
+                <TabsContent value="text" className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="description" className="text-sm font-medium">
+                      Project Description
+                    </label>
+                    <Textarea
+                      id="description"
+                      rows={8}
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                      placeholder="Paste your raw project description here..."
+                      required
+                    />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="upload" className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="fileUpload" className="text-sm font-medium">
+                      Upload Project Files
+                    </label>
+                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md hover:border-primary/50 transition-colors">
+                      <div className="space-y-1 text-center">
+                        <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <div className="flex text-sm text-muted-foreground">
+                          <label
+                            htmlFor="fileUpload"
+                            className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80 focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                          >
+                            <span>Upload a file</span>
+                            <input
+                              id="fileUpload"
+                              name="fileUpload"
+                              type="file"
+                              className="sr-only"
+                              onChange={handleFileChange}
+                              accept=".zip,.tar,.tar.gz"
+                              required={inputMethod === 'upload'}
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">ZIP, TAR, or TAR.GZ up to 50MB</p>
+                        {uploadedFile && (
+                          <p className="text-sm text-green-600 mt-2 flex items-center justify-center gap-1">
+                            <Check className="h-4 w-4" />
+                            {uploadedFile.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className="space-y-2">
+                  <label htmlFor="audience" className="text-sm font-medium">
+                    Audience
+                  </label>
+                  <Select value={audience} onValueChange={(value) => setAudience(value as typeof audience)}>
+                    <SelectTrigger id="audience">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recruiter">Recruiter</SelectItem>
+                      <SelectItem value="engineer">Engineer</SelectItem>
+                      <SelectItem value="non-technical">Non-Technical</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="tone" className="text-sm font-medium">
+                    Tone
+                  </label>
+                  <Select value={tone} onValueChange={(value) => setTone(value as typeof tone)}>
+                    <SelectTrigger id="tone">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="concise">Concise</SelectItem>
+                      <SelectItem value="confident">Confident</SelectItem>
+                      <SelectItem value="technical">Technical</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            </div>
-          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label htmlFor="audience" className="block text-sm font-medium text-gray-700 mb-2">
-                Audience
-              </label>
-              <select
-                id="audience"
-                value={audience}
-                onChange={(e) => setAudience(e.target.value as typeof audience)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="recruiter">Recruiter</option>
-                <option value="engineer">Engineer</option>
-                <option value="non-technical">Non-Technical</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="tone" className="block text-sm font-medium text-gray-700 mb-2">
-                Tone
-              </label>
-              <select
-                id="tone"
-                value={tone}
-                onChange={(e) => setTone(e.target.value as typeof tone)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="concise">Concise</option>
-                <option value="confident">Confident</option>
-                <option value="technical">Technical</option>
-              </select>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Generating...' : 'Explain My Project'}
-          </button>
-        </form>
+              <Button type="submit" disabled={loading} className="w-full" size="lg">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Explain My Project'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
-            {error}
-          </div>
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         {loading && (
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Generating your explanations...</p>
-          </div>
+          <Card className="p-8 text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Generating your explanations...</p>
+          </Card>
         )}
 
         {output && (
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Technical Explanation</h2>
-                <button
-                  onClick={() => copyToClipboard(output.technicalExplanation, 'technical')}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  {copied === 'technical' ? '✓ Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{output.technicalExplanation}</p>
-            </div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Technical Explanation</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(output.technicalExplanation, 'technical')}
+                  >
+                    {copied === 'technical' ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">{output.technicalExplanation}</p>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Resume Bullet</h2>
-                <button
-                  onClick={() => copyToClipboard(output.resumeBullet, 'resume')}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  {copied === 'resume' ? '✓ Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="text-gray-700 leading-relaxed">{output.resumeBullet}</p>
-            </div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Resume Bullet</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(output.resumeBullet, 'resume')}
+                  >
+                    {copied === 'resume' ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground leading-relaxed">{output.resumeBullet}</p>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Interview Pitch</h2>
-                <button
-                  onClick={() => copyToClipboard(output.interviewPitch, 'pitch')}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  {copied === 'pitch' ? '✓ Copied' : 'Copy'}
-                </button>
-              </div>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{output.interviewPitch}</p>
-            </div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Interview Pitch</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyToClipboard(output.interviewPitch, 'pitch')}
+                  >
+                    {copied === 'pitch' ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="mr-2 h-4 w-4" />
+                        Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">{output.interviewPitch}</p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
