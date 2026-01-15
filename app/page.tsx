@@ -8,8 +8,13 @@ interface Output {
   interviewPitch: string
 }
 
+type InputMethod = 'text' | 'github' | 'upload'
+
 export default function Home() {
+  const [inputMethod, setInputMethod] = useState<InputMethod>('github')
   const [projectDescription, setProjectDescription] = useState('')
+  const [githubUrl, setGithubUrl] = useState('')
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'non-technical'>('engineer')
   const [tone, setTone] = useState<'concise' | 'confident' | 'technical'>('confident')
   const [output, setOutput] = useState<Output | null>(null)
@@ -24,17 +29,33 @@ export default function Home() {
     setOutput(null)
 
     try {
-      const response = await fetch('/api/explain', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          projectDescription,
-          audience,
-          tone,
-        }),
-      })
+      let response: Response
+
+      if (inputMethod === 'upload' && uploadedFile) {
+        const formData = new FormData()
+        formData.append('file', uploadedFile)
+        formData.append('audience', audience)
+        formData.append('tone', tone)
+        formData.append('inputMethod', 'upload')
+
+        response = await fetch('/api/explain', {
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        response = await fetch('/api/explain', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            projectDescription: inputMethod === 'github' ? githubUrl : projectDescription,
+            audience,
+            tone,
+            inputMethod,
+          }),
+        })
+      }
 
       if (!response.ok) {
         const data = await response.json()
@@ -47,6 +68,14 @@ export default function Home() {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadedFile(file)
+      setError(null)
     }
   }
 
@@ -69,20 +98,144 @@ export default function Home() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6 mb-8">
+          {/* Input Method Tabs */}
           <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-              Project Description
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Input Method
             </label>
-            <textarea
-              id="description"
-              rows={8}
-              value={projectDescription}
-              onChange={(e) => setProjectDescription(e.target.value)}
-              placeholder="Paste your raw project description here..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              required
-            />
+            <div className="flex space-x-2 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMethod('github')
+                  setError(null)
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  inputMethod === 'github'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                GitHub Repo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMethod('text')
+                  setError(null)
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  inputMethod === 'text'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Text Description
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMethod('upload')
+                  setError(null)
+                }}
+                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                  inputMethod === 'upload'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Upload Project
+              </button>
+            </div>
           </div>
+
+          {/* Text Input */}
+          {inputMethod === 'text' && (
+            <div className="mb-6">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+                Project Description
+              </label>
+              <textarea
+                id="description"
+                rows={8}
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Paste your raw project description here..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                required
+              />
+            </div>
+          )}
+
+          {/* GitHub URL Input */}
+          {inputMethod === 'github' && (
+            <div className="mb-6">
+              <label htmlFor="githubUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                GitHub Repository URL
+              </label>
+              <input
+                id="githubUrl"
+                type="url"
+                value={githubUrl}
+                onChange={(e) => setGithubUrl(e.target.value)}
+                placeholder="https://github.com/username/repo"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Paste the full GitHub repository URL. We'll fetch the README and repository information.
+              </p>
+            </div>
+          )}
+
+          {/* File Upload Input */}
+          {inputMethod === 'upload' && (
+            <div className="mb-6">
+              <label htmlFor="fileUpload" className="block text-sm font-medium text-gray-700 mb-2">
+                Upload Project Files
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
+                <div className="space-y-1 text-center">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    stroke="currentColor"
+                    fill="none"
+                    viewBox="0 0 48 48"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="fileUpload"
+                      className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload a file</span>
+                      <input
+                        id="fileUpload"
+                        name="fileUpload"
+                        type="file"
+                        className="sr-only"
+                        onChange={handleFileChange}
+                        accept=".zip,.tar,.tar.gz"
+                        required={inputMethod === 'upload'}
+                      />
+                    </label>
+                    <p className="pl-1">or drag and drop</p>
+                  </div>
+                  <p className="text-xs text-gray-500">ZIP, TAR, or TAR.GZ up to 50MB</p>
+                  {uploadedFile && (
+                    <p className="text-sm text-green-600 mt-2">✓ {uploadedFile.name}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             <div>
