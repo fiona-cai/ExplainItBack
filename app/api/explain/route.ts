@@ -151,7 +151,7 @@ async function extractFromZip(file: File): Promise<string> {
         if (matchingFile) {
           foundFiles.push(fileName)
           try {
-            const content = await matchingFile.async('string')
+            const content = await (matchingFile as JSZip.JSZipObject).async('string')
             description += `--- ${matchingFile.name} ---\n${content}\n\n`
           } catch {
             // Skip if can't read as string (binary file)
