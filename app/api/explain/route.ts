@@ -139,21 +139,23 @@ async function extractFromZip(file: File): Promise<string> {
     for (const fileName of keyFiles) {
       // Search for files matching the name (case-insensitive, can be in subdirectories)
       const regex = new RegExp(`(^|/)${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
-      let matchingFile: JSZip.JSZipObject | null = null
-      
-      zip.forEach((relativePath, file) => {
-        if (!matchingFile && regex.test(relativePath) && !relativePath.endsWith('/')) {
-          matchingFile = file
+      let matchingPath: string | null = null
+      for (const relativePath of Object.keys(zip.files)) {
+        if (regex.test(relativePath) && !relativePath.endsWith('/')) {
+          matchingPath = relativePath
+          break
         }
-      })
-      
-      if (matchingFile) {
-        foundFiles.push(fileName)
-        try {
-          const content = await matchingFile.async('string')
-          description += `--- ${matchingFile.name} ---\n${content}\n\n`
-        } catch {
-          // Skip if can't read as string (binary file)
+      }
+      if (matchingPath) {
+        const matchingFile = zip.file(matchingPath)
+        if (matchingFile) {
+          foundFiles.push(fileName)
+          try {
+            const content = await matchingFile.async('string')
+            description += `--- ${matchingFile.name} ---\n${content}\n\n`
+          } catch {
+            // Skip if can't read as string (binary file)
+          }
         }
       }
     }
