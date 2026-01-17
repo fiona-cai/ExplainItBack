@@ -83,3 +83,51 @@ npm run dev
 
 - `OPENAI_API_KEY`: Your OpenAI API key (required)
 - `GITHUB_TOKEN`: Optional GitHub personal access token for higher rate limits (public repos work without it)
+- `GITHUB_TOKEN_1`, `GITHUB_TOKEN_2`, etc.: Additional GitHub tokens for higher rate limits
+- `RATE_LIMIT_PER_USER`: Per-user rate limit (default: 10 requests/hour)
+- `EXPECTED_USERS_PER_HOUR`: Expected traffic for rate limit calculation (default: 500)
+- `AVG_REQUESTS_PER_USER`: Average requests per user (default: 2.0)
+- `BURST_FACTOR`: Burst traffic multiplier (default: 1.5)
+
+### Getting a GitHub Personal Access Token
+
+To increase your GitHub API rate limit from 60/hour to 5,000/hour:
+
+1. Go to [GitHub Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens)
+2. Click "Generate new token" → "Generate new token (classic)"
+3. Give it a descriptive name (e.g., "ExplainItBack")
+4. Select scopes:
+   - ✅ `public_repo` (to read public repositories)
+   - ✅ `repo` (if you need private repos)
+5. Click "Generate token"
+6. Copy the token (starts with `ghp_`)
+7. Add it to your `.env.local` file:
+   ```bash
+   GITHUB_TOKEN=ghp_your_token_here
+   ```
+
+**Note:** Fine-grained tokens also work. They start with `github_pat_` and offer more granular permissions.
+
+### Using Multiple Tokens (Higher Limits)
+
+You can use multiple tokens to effectively increase your rate limit. The app will automatically rotate between them:
+
+```bash
+# Single token (5,000/hour)
+GITHUB_TOKEN=ghp_token1
+
+# Multiple tokens (5,000/hour × number of tokens)
+GITHUB_TOKEN=ghp_token1
+GITHUB_TOKEN_1=ghp_token2
+GITHUB_TOKEN_2=ghp_token3
+# ... up to GITHUB_TOKEN_N
+```
+
+**Example:** With 3 tokens, you effectively get 15,000 requests/hour (3 × 5,000).
+
+### Rate Limits
+
+- **Without token**: 60 requests/hour
+- **With 1 Personal Access Token**: 5,000 requests/hour
+- **With N tokens**: 5,000 × N requests/hour (automatically rotated)
+- **With GitHub App**: 15,000 requests/hour (advanced setup, requires app installation)
