@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Toaster } from '@/components/ui/toaster'
@@ -14,78 +12,165 @@ import {
   Copy, 
   Check, 
   Loader2, 
-  Upload, 
   Github, 
-  FileText, 
+  FileText,
   AlertCircle, 
-  X, 
-  Sparkles,
-  Lightbulb,
-  Zap
+  X,
+  Target,
+  MessageSquare,
+  Edit,
+  RefreshCw,
+  TrendingUp,
+  Award
 } from 'lucide-react'
 
 interface Output {
   technicalExplanation: string
   resumeBullets: string[]
   interviewPitch: string
+  metadata?: {
+    inputLength?: number
+    estimatedTokens?: number
+    rateLimit?: {
+      remaining: number
+      resetTime: number
+      maxRequests?: number
+    }
+    githubRateLimit?: {
+      remaining: number
+      reset: number
+    }
+    githubTokens?: {
+      count: number
+      effectiveLimit: number
+      totalUsage?: number
+      usagePerToken?: number[]
+    }
+  }
 }
 
-type InputMethod = 'text' | 'github' | 'upload'
+type RefineAction = 'make-concise' | 'add-metrics' | 'make-senior' | 'faang-style' | 'more-impact' | 'simplify'
+type RefineType = 'resume-bullets' | 'interview-pitch' | 'technical-explanation'
+
+type InputMethod = 'github'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+// Token estimation: ~4 characters = 1 token
+const TOKENS_PER_CHAR = 0.25
+const MAX_PROJECT_TOKENS = 122000 // 128K - 6K for prompts/output
+const MAX_INPUT_CHARACTERS = Math.floor(MAX_PROJECT_TOKENS / TOKENS_PER_CHAR) // ~488,000 characters
+const MAX_INPUT_CHARACTERS_WARNING = Math.floor(MAX_PROJECT_TOKENS * 0.75 / TOKENS_PER_CHAR) // ~366,000 characters
 
 export default function Home() {
-  const [inputMethod, setInputMethod] = useState<InputMethod>('github')
-  const [projectDescription, setProjectDescription] = useState('')
   const [githubUrl, setGithubUrl] = useState('')
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'non-technical'>('engineer')
-  const [tone, setTone] = useState<'concise' | 'confident' | 'technical'>('confident')
+  const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'hiring-manager' | 'founder-product'>('engineer')
+  const [tone, setTone] = useState<'confident' | 'concise' | 'conversational' | 'technical'>('confident')
   const [output, setOutput] = useState<Output | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [progress, setProgress] = useState<{ message: string; filesFetched?: number; tokens?: number } | null>(null)
+  const [rateLimitInfo, setRateLimitInfo] = useState<{ remaining: number; resetTime?: number } | null>(null)
+  const [refining, setRefining] = useState<{ type: RefineType; action: RefineAction } | null>(null)
+  const [refinedContent, setRefinedContent] = useState<{
+    'resume-bullets'?: string[]
+    'interview-pitch'?: string
+    'technical-explanation'?: string
+  }>({})
+  const [githubRepoInfo, setGithubRepoInfo] = useState<{ name: string; description: string; stars: number; owner: string } | null>(null)
+  const [fetchingGithub, setFetchingGithub] = useState(false)
 
   const validateInput = (): boolean => {
-    if (inputMethod === 'github') {
-      if (!githubUrl.trim()) {
-        setError('Please enter a GitHub repository URL')
-        toast.error('GitHub URL is required')
+    if (!githubUrl.trim()) {
+      setError('Please enter a GitHub repository URL')
+      toast.error('GitHub URL is required')
+      return false
+    }
+    if (!githubRepoInfo) {
+      setError('Please fetch the repository first by clicking the Fetch button')
+      toast.error('Repository not fetched')
+      return false
+    }
+    try {
+      const url = new URL(githubUrl)
+      if (!url.hostname.includes('github.com')) {
+        setError('Please enter a valid GitHub repository URL')
+        toast.error('Invalid GitHub URL')
         return false
       }
-      try {
-        const url = new URL(githubUrl)
-        if (!url.hostname.includes('github.com')) {
-          setError('Please enter a valid GitHub repository URL')
-          toast.error('Invalid GitHub URL')
-          return false
-        }
-      } catch {
-        setError('Please enter a valid URL')
-        toast.error('Invalid URL format')
-        return false
-      }
-    } else if (inputMethod === 'text') {
-      if (!projectDescription.trim()) {
-        setError('Please enter a project description')
-        toast.error('Project description is required')
-        return false
-      }
-      if (projectDescription.trim().length < 20) {
-        setError('Project description should be at least 20 characters')
-        toast.error('Description too short. Please provide more details.')
-        return false
-      }
-    } else if (inputMethod === 'upload') {
-      if (!uploadedFile) {
-        setError('Please upload a project file')
-        toast.error('File upload is required')
-        return false
-      }
+    } catch {
+      setError('Please enter a valid URL')
+      toast.error('Invalid URL format')
+      return false
     }
     return true
+  }
+
+  const handleFetchGithub = async () => {
+    if (!githubUrl.trim()) {
+      setError('Please enter a GitHub repository URL')
+      toast.error('GitHub URL is required')
+      return
+    }
+
+    try {
+      const url = new URL(githubUrl)
+      if (!url.hostname.includes('github.com')) {
+        setError('Please enter a valid GitHub repository URL')
+        toast.error('Invalid GitHub URL')
+        return
+      }
+    } catch {
+      setError('Please enter a valid URL')
+      toast.error('Invalid URL format')
+      return
+    }
+
+    setFetchingGithub(true)
+    setError(null)
+
+    try {
+      // Parse the GitHub URL
+      const urlObj = new URL(githubUrl)
+      const parts = urlObj.pathname.split('/').filter(Boolean)
+      if (parts.length < 2) {
+        throw new Error('Invalid GitHub URL format')
+      }
+      const owner = parts[0]
+      const repo = parts[1].replace(/\.git$/, '')
+
+      // Fetch repo info from GitHub API
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`)
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Repository not found. Please check the URL.')
+        }
+        if (response.status === 403) {
+          throw new Error('Access forbidden. The repository may be private.')
+        }
+        throw new Error('Failed to fetch repository information')
+      }
+
+      const repoData = await response.json()
+      
+      setGithubRepoInfo({
+        name: repoData.name,
+        description: repoData.description || 'No description available',
+        stars: repoData.stargazers_count || 0,
+        owner: repoData.owner.login
+      })
+
+      toast.success('Repository fetched successfully!')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch repository'
+      setError(errorMessage)
+      toast.error(errorMessage)
+      setGithubRepoInfo(null)
+    } finally {
+      setFetchingGithub(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,100 +183,71 @@ export default function Home() {
     setLoading(true)
     setError(null)
     setOutput(null)
+    setRateLimitInfo(null)
+    
+    setProgress({ message: 'Fetching repository information and analyzing files...' })
 
     try {
-      let response: Response
-
-      if (inputMethod === 'upload' && uploadedFile) {
-        const formData = new FormData()
-        formData.append('file', uploadedFile)
-        formData.append('audience', audience)
-        formData.append('tone', tone)
-        formData.append('inputMethod', 'upload')
-
-        response = await fetch('/api/explain', {
-          method: 'POST',
-          body: formData,
-        })
-      } else {
-        response = await fetch('/api/explain', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            projectDescription: inputMethod === 'github' ? githubUrl : projectDescription,
-            audience,
-            tone,
-            inputMethod,
-          }),
-        })
-      }
+      const response = await fetch('/api/explain', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectDescription: githubUrl,
+          audience,
+          tone,
+          inputMethod: 'github',
+        }),
+      })
 
       if (!response.ok) {
         const data = await response.json()
+        
+        // Handle rate limit errors
+        if (response.status === 429) {
+          const resetTime = data.rateLimit?.resetTime 
+            ? new Date(data.rateLimit.resetTime).toLocaleTimeString()
+            : 'soon'
+          throw new Error(`${data.error || 'Rate limit exceeded'}. Please try again after ${resetTime}.`)
+        }
+        
         throw new Error(data.error || 'Failed to generate explanation')
       }
 
       const data = await response.json()
       setOutput(data)
+      
+      // Update rate limit info (only show remaining, not technical details)
+      if (data.metadata?.rateLimit) {
+        setRateLimitInfo({
+          remaining: data.metadata.rateLimit.remaining,
+          resetTime: data.metadata.rateLimit.resetTime,
+        })
+      }
+      
+      // Show warnings only if critical
+      if (data.metadata?.githubRateLimit && data.metadata.githubRateLimit.remaining < 5) {
+        toast.warning('GitHub API rate limit is very low. Some features may be unavailable.')
+      }
+      
+      // Show warnings for long inputs
+      if (data.metadata?.estimatedTokens && data.metadata.estimatedTokens > 75000) {
+        toast.warning('Large input detected. Results may be truncated.')
+      }
+      
       toast.success('Explanations generated successfully!')
+      setProgress(null)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred'
       setError(errorMessage)
       toast.error(errorMessage)
+      setProgress(null)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`File size exceeds 50MB limit. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB`)
-        setError(`File size exceeds 50MB limit`)
-        return
-      }
-      setUploadedFile(file)
-      setError(null)
-      toast.success(`File "${file.name}" uploaded successfully`)
-    }
-  }
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (inputMethod === 'upload') {
-      setIsDragging(true)
-    }
-  }, [inputMethod])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-
-    if (inputMethod !== 'upload') return
-
-    const file = e.dataTransfer.files[0]
-    if (file) {
-      if (file.size > MAX_FILE_SIZE) {
-        toast.error(`File size exceeds 50MB limit. Your file is ${(file.size / 1024 / 1024).toFixed(2)}MB`)
-        setError(`File size exceeds 50MB limit`)
-        return
-      }
-      setUploadedFile(file)
-      setError(null)
-      toast.success(`File "${file.name}" uploaded successfully`)
-    }
-  }, [inputMethod])
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -206,384 +262,905 @@ export default function Home() {
   }
 
   const clearAll = () => {
-    setProjectDescription('')
     setGithubUrl('')
-    setUploadedFile(null)
+    setGithubRepoInfo(null)
     setOutput(null)
     setError(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
     toast.info('Form cleared')
   }
 
-  const loadExample = () => {
-    const example = `A full-stack web application built with React and Node.js that helps users manage their daily tasks. Features include user authentication, real-time task synchronization, drag-and-drop task organization, and calendar integration. The frontend uses React with TypeScript and Tailwind CSS for styling, while the backend is built with Express.js and MongoDB for data storage. The app includes features like task categories, due dates, reminders, and collaborative task sharing.`
-    setProjectDescription(example)
-    setInputMethod('text')
-    toast.info('Example loaded! You can edit it or submit as-is.')
+  const handleRefine = async (
+    content: string,
+    refineType: RefineType,
+    action: RefineAction
+  ) => {
+    if (!output) return
+
+    setRefining({ type: refineType, action })
+    try {
+      const response = await fetch('/api/refine', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          refineType,
+          action,
+          originalContext: output.technicalExplanation, // Provide context
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to refine content')
+      }
+
+      const data = await response.json()
+      
+      // Update the refined content state
+      if (refineType === 'resume-bullets') {
+        // Parse bullets if it's a string
+        const bullets = typeof data.refined === 'string' 
+          ? data.refined.split('\n').filter((b: string) => b.trim()).map((b: string) => b.replace(/^[•\-\*]\s*/, '').trim())
+          : data.refined
+        setRefinedContent(prev => ({ ...prev, 'resume-bullets': bullets }))
+      } else {
+        setRefinedContent(prev => ({ ...prev, [refineType]: data.refined }))
+      }
+
+      toast.success('Content refined successfully!')
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refine content'
+      toast.error(errorMessage)
+    } finally {
+      setRefining(null)
+    }
+  }
+
+  const getDisplayContent = (type: RefineType, original: string | string[]): string | string[] => {
+    const refined = refinedContent[type]
+    if (refined) {
+      return refined
+    }
+    return original
   }
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-background">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           {/* Header */}
-          <div className="text-center mb-8 sm:mb-12 space-y-3">
-            <div className="flex items-center justify-center gap-2">
-              <Sparkles className="h-8 w-8 text-primary" />
-              <h1 className="text-4xl sm:text-5xl font-bold text-foreground bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                ExplainItBack
-              </h1>
+          <div className="text-center mb-8 sm:mb-12 space-y-4 fade-in-up overflow-visible">
+            <h1 className="text-4xl sm:text-5xl font-bold text-foreground raleway fade-in-up leading-tight pt-2 pb-1">
+              ExplainIt<span className="italic font-light">Back.</span>
+            </h1>
+            <div className="space-y-2">
+              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto fade-in-up" style={{ animationDelay: '0.1s' }}>
+                git explain &lt;repository_url&gt;
+              </p>
             </div>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-              Transform your project into clear explanations, resume bullets, and pitches
-            </p>
           </div>
 
-          {/* Main Card */}
-          <Card className="mb-6 shadow-lg border-2">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-2xl">Project Input</CardTitle>
-                  <CardDescription className="mt-1">
-                    Choose how you'd like to provide your project information
-                  </CardDescription>
+          {/* Summary */}
+          <Card className="border-2 mb-8 fade-in-up" style={{ animationDelay: '0.15s' }}>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold text-foreground">What you'll get</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-5 w-5 text-foreground" />
+                      <h3 className="font-medium text-foreground">Resume Bullets</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Action-oriented bullet points highlighting technologies and impact, ready for your resume and LinkedIn.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-foreground" />
+                      <h3 className="font-medium text-foreground">Interview Pitch</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      A concise explanation perfect for "Tell me about a project" questions, tailored to your audience.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-foreground" />
+                      <h3 className="font-medium text-foreground">Technical Explanation</h3>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Deep dive into architecture, tools, and implementation details for technical discussions.
+                    </p>
+                  </div>
                 </div>
-                {(projectDescription || githubUrl || uploadedFile || output) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAll}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Clear
-                  </Button>
-                )}
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">How it works:</span> We analyze your repository's code, structure, and documentation to generate professional explanations tailored to your chosen audience (Recruiter, Engineer, Hiring Manager, or Founder/Product) and tone.
+                  </p>
+                </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit}>
-                <Tabs 
-                  value={inputMethod} 
-                  onValueChange={(value) => {
-                    setInputMethod(value as InputMethod)
-                    setError(null)
-                  }} 
-                  className="w-full"
-                >
-                  <TabsList className="grid w-full grid-cols-3 mb-6 h-11">
-                    <TabsTrigger value="github" className="flex items-center gap-2 text-sm sm:text-base">
-                      <Github className="h-4 w-4" />
-                      <span className="hidden sm:inline">GitHub Repo</span>
-                      <span className="sm:hidden">GitHub</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="text" className="flex items-center gap-2 text-sm sm:text-base">
-                      <FileText className="h-4 w-4" />
-                      <span className="hidden sm:inline">Text Description</span>
-                      <span className="sm:hidden">Text</span>
-                    </TabsTrigger>
-                    <TabsTrigger value="upload" className="flex items-center gap-2 text-sm sm:text-base">
-                      <Upload className="h-4 w-4" />
-                      <span className="hidden sm:inline">Upload Project</span>
-                      <span className="sm:hidden">Upload</span>
-                    </TabsTrigger>
-                  </TabsList>
+            </CardContent>
+          </Card>
 
-                  <TabsContent value="github" className="space-y-4 mt-6">
-                    <div className="space-y-2">
-                      <label htmlFor="githubUrl" className="text-sm font-medium flex items-center gap-2">
-                        <Github className="h-4 w-4" />
-                        GitHub Repository URL
-                      </label>
+          {/* Input Form */}
+          <form onSubmit={handleSubmit} className="space-y-6 mb-6">
+            <Card className="border-2 card-lift fade-in-up" style={{ animationDelay: '0.1s' }}>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl">GitHub Repository</CardTitle>
+                    <CardDescription className="mt-0.5">
+                      Enter your repository URL
+                    </CardDescription>
+                  </div>
+                  {(githubUrl || output) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAll}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="githubUrl" className="text-sm font-medium flex items-center gap-2">
+                      <Github className="h-4 w-4" />
+                      GitHub URL
+                    </label>
+                    <div className="flex gap-2">
                       <Input
                         id="githubUrl"
                         type="url"
                         value={githubUrl}
-                        onChange={(e) => setGithubUrl(e.target.value)}
+                        onChange={(e) => {
+                          setGithubUrl(e.target.value)
+                          setGithubRepoInfo(null)
+                        }}
                         placeholder="https://github.com/username/repo"
-                        className="text-base"
+                        className="text-base fade-in-up transition-all focus:ring-2 focus:ring-foreground/50 flex-1"
+                        style={{ animationDelay: '0.2s' }}
                         required
                       />
-                      <p className="text-sm text-muted-foreground">
-                        Paste the full GitHub repository URL. We'll fetch the README and repository information.
-                      </p>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="text" className="space-y-4 mt-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="description" className="text-sm font-medium flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Project Description
-                        </label>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={loadExample}
-                          className="text-xs h-7"
-                        >
-                          <Lightbulb className="h-3 w-3 mr-1" />
-                          Load Example
-                        </Button>
-                      </div>
-                      <Textarea
-                        id="description"
-                        rows={10}
-                        value={projectDescription}
-                        onChange={(e) => setProjectDescription(e.target.value)}
-                        placeholder="Paste your raw project description here... Be as detailed as possible for best results."
-                        className="text-base resize-y min-h-[200px]"
-                        required
-                      />
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{projectDescription.length} characters</span>
-                        {projectDescription.length > 0 && projectDescription.length < 20 && (
-                          <span className="text-destructive">At least 20 characters recommended</span>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="upload" className="space-y-4 mt-6">
-                    <div className="space-y-2">
-                      <label htmlFor="fileUpload" className="text-sm font-medium flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        Upload Project Files
-                      </label>
-                      <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`flex justify-center px-6 pt-8 pb-8 border-2 border-dashed rounded-lg transition-all cursor-pointer ${
-                          isDragging
-                            ? 'border-primary bg-primary/5 scale-[1.02]'
-                            : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
-                        }`}
-                        onClick={() => fileInputRef.current?.click()}
+                      <Button
+                        type="button"
+                        onClick={handleFetchGithub}
+                        disabled={fetchingGithub || !githubUrl.trim()}
+                        className="shrink-0"
                       >
-                        <div className="space-y-3 text-center">
-                          <Upload className={`mx-auto h-12 w-12 transition-colors ${
-                            isDragging ? 'text-primary' : 'text-muted-foreground'
-                          }`} />
-                          <div className="flex flex-col sm:flex-row items-center justify-center gap-1 text-sm text-muted-foreground">
-                            <span className="font-medium text-primary">Click to upload</span>
-                            <span className="hidden sm:inline">or drag and drop</span>
-                            <span className="sm:hidden">or drag here</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">ZIP, TAR, or TAR.GZ up to 50MB</p>
-                          {uploadedFile && (
-                            <div className="mt-3 p-2 bg-green-500/10 border border-green-500/20 rounded-md">
-                              <p className="text-sm text-green-600 dark:text-green-400 flex items-center justify-center gap-2">
-                                <Check className="h-4 w-4" />
-                                {uploadedFile.name}
-                                <span className="text-xs text-muted-foreground">
-                                  ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
-                                </span>
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          ref={fileInputRef}
-                          id="fileUpload"
-                          name="fileUpload"
-                          type="file"
-                          className="hidden"
-                          onChange={handleFileChange}
-                          accept=".zip,.tar,.tar.gz"
-                          required={inputMethod === 'upload'}
-                        />
-                      </div>
+                        {fetchingGithub ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <Github className="mr-2 h-4 w-4" />
+                            Fetch
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  </TabsContent>
-                </Tabs>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 mt-6">
-                  <div className="space-y-2">
-                    <label htmlFor="audience" className="text-sm font-medium">
-                      Target Audience
-                    </label>
-                    <Select value={audience} onValueChange={(value) => setAudience(value as typeof audience)}>
-                      <SelectTrigger id="audience" className="h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recruiter">Recruiter</SelectItem>
-                        <SelectItem value="engineer">Engineer</SelectItem>
-                        <SelectItem value="non-technical">Non-Technical</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Paste GitHub URL and click Fetch
+                    </p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="tone" className="text-sm font-medium">
-                      Tone
-                    </label>
-                    <Select value={tone} onValueChange={(value) => setTone(value as typeof tone)}>
-                      <SelectTrigger id="tone" className="h-11">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="concise">Concise</SelectItem>
-                        <SelectItem value="confident">Confident</SelectItem>
-                        <SelectItem value="technical">Technical</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  {githubRepoInfo && (
+                    <div className="p-4 bg-muted border border-foreground/20 rounded-lg fade-in-up">
+                      <div className="flex items-start gap-3">
+                        <Check className="h-5 w-5 text-foreground mt-0.5 shrink-0" />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">
+                              {githubRepoInfo.owner}/{githubRepoInfo.name}
+                            </h4>
+                            {githubRepoInfo.stars > 0 && (
+                              <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <span>⭐</span>
+                                {githubRepoInfo.stars.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {githubRepoInfo.description}
+                          </p>
+                          <p className="text-xs text-foreground">
+                            Repository fetched successfully!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Configure Output */}
+            {githubRepoInfo && (
+            <Card className="border-2 card-lift fade-in-up" style={{ animationDelay: '0.2s' }}>
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-foreground text-background font-bold text-sm">
+                    2
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Configure Output</CardTitle>
+                    <CardDescription className="mt-0.5">
+                      Set audience and tone
+                    </CardDescription>
                   </div>
                 </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="audience" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                          <Target className="h-4 w-4" />
+                          Audience
+                        </label>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Technical depth
+                        </p>
+                        <Select value={audience} onValueChange={(value) => setAudience(value as typeof audience)}>
+                          <SelectTrigger id="audience" className="h-11 transition-all focus:ring-2 focus:ring-foreground/50 text-left">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="recruiter">
+                              <div>
+                                <div className="font-medium">Recruiter</div>
+                                <div className="text-xs text-muted-foreground">Clear, high-level explanation focused on impact</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="engineer">
+                              <div>
+                                <div className="font-medium">Engineer</div>
+                                <div className="text-xs text-muted-foreground">Technical depth, architecture, and tools</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="hiring-manager">
+                              <div>
+                                <div className="font-medium">Hiring Manager</div>
+                                <div className="text-xs text-muted-foreground">Ownership, scope, and decision-making</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="founder-product">
+                              <div>
+                                <div className="font-medium">Founder / Product</div>
+                                <div className="text-xs text-muted-foreground">User value, tradeoffs, and speed</div>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
 
-                <Button 
-                  type="submit" 
-                  disabled={loading} 
-                  className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all" 
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="mr-2 h-5 w-5" />
-                      Explain My Project
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+                    <div className="space-y-3">
+                      <div>
+                        <label htmlFor="tone" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                          <MessageSquare className="h-4 w-4" />
+                          Tone
+                        </label>
+                        <p className="text-xs text-muted-foreground mb-3">
+                          Writing style
+                        </p>
+                        <Select value={tone} onValueChange={(value) => setTone(value as typeof tone)}>
+                          <SelectTrigger id="tone" className="h-11 transition-all focus:ring-2 focus:ring-foreground/50 text-left">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="confident">
+                              <div>
+                                <div className="font-medium">Confident</div>
+                                <div className="text-xs text-muted-foreground">Default</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="concise">
+                              <div>
+                                <div className="font-medium">Concise</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="conversational">
+                              <div>
+                                <div className="font-medium">Conversational</div>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="technical">
+                              <div>
+                                <div className="font-medium">Technical</div>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    disabled={loading} 
+                    className="w-full h-12 text-base font-semibold  transition-all mt-6 " 
+                    size="lg"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Github className="mr-2 h-5 w-5" />
+                        Explain My Project
+                      </>
+                    )}
+                  </Button>
+              </CardContent>
+            </Card>
+            )}
+          </form>
 
           {/* Error Alert */}
           {error && (
-            <Alert variant="destructive" className="mb-6 animate-in slide-in-from-top-2">
+            <Alert variant="destructive" className="mb-6 fade-in-up">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {/* Loading State */}
+          {/* Loading State with Blurred Preview */}
           {loading && (
-            <Card className="p-12 text-center shadow-lg animate-in fade-in-50">
-              <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary mb-4" />
-              <p className="text-lg font-medium text-foreground mb-2">Generating your explanations...</p>
-              <p className="text-sm text-muted-foreground">This may take a few moments</p>
-            </Card>
-          )}
-
-          {/* Output Cards */}
-          {output && (
-            <div className="space-y-6 animate-in slide-in-from-bottom-4">
-              <div className="text-center mb-4">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Your Results</h2>
-                <p className="text-muted-foreground">Copy any section to use in your resume or interviews</p>
+            <div className="mt-12 space-y-6 fade-in-up">
+              <div className="relative mb-6 fade-in-up" style={{ animationDelay: '0.1s' }}>
+                <div className="text-center mb-2">
+                  <h2 className="text-2xl font-bold text-foreground gradient-text">Your Results</h2>
+                </div>
+                <div className="absolute top-0 right-0">
+                  <div className="cool-spinner">
+                    <div className="cool-spinner-inner"></div>
+                  </div>
+                </div>
+                <p className="text-center text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
+                {progress?.filesFetched !== undefined && (
+                  <p className="text-center text-xs text-muted-foreground mt-2">
+                    Fetched {progress.filesFetched} file{progress.filesFetched !== 1 ? 's' : ''}
+                    {progress.tokens !== undefined && (
+                      <span className="ml-2">(~{progress.tokens.toLocaleString()} tokens)</span>
+                    )}
+                  </p>
+                )}
               </div>
 
-              <Card className="shadow-lg hover:shadow-xl transition-shadow">
+              {/* Blurred Resume Bullets Preview */}
+              <Card className="border-l-[4px] border-l-foreground card-lift fade-in-up blur-sm pointer-events-none" style={{ animationDelay: '0.2s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Technical Explanation
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(output.technicalExplanation, 'technical')}
-                      className="shrink-0"
-                    >
-                      {copied === 'technical' ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <Award className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Resume Bullets</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          For resumes and applications
+                        </CardDescription>
+                      </div>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
-                    {output.technicalExplanation}
-                  </p>
+                <CardContent className="fade-in-up">
+                  <div className="space-y-3">
+                    <div className="p-3 bg-muted/50 rounded-md">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-muted rounded w-full"></div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-md">
+                      <div className="h-4 bg-muted rounded w-4/5 mb-2"></div>
+                      <div className="h-4 bg-muted rounded w-full"></div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-md">
+                      <div className="h-4 bg-muted rounded w-5/6 mb-2"></div>
+                      <div className="h-4 bg-muted rounded w-3/4"></div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-lg hover:shadow-xl transition-shadow">
+              {/* Blurred Interview Pitch Preview */}
+              <Card className="border-l-4 border-l-foreground card-lift fade-in-up blur-sm pointer-events-none" style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Zap className="h-5 w-5" />
-                      Resume Bullets
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(output.resumeBullets.map(b => '• ' + b).join('\n'), 'resume')}
-                      className="shrink-0"
-                    >
-                      {copied === 'resume' ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <MessageSquare className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Interview Pitch</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          For interview questions
+                        </CardDescription>
+                      </div>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <ul className="text-foreground leading-relaxed text-base font-medium list-disc pl-5 space-y-2">
-                    {output.resumeBullets.map((bullet, i) => (
-                      <li key={i}>{bullet}</li>
+                <CardContent className="fade-in-up">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-5/6"></div>
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-4/5"></div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Blurred Technical Explanation Preview */}
+              <Card className=" border-l-4 border-l-foreground card-lift fade-in-up  blur-sm pointer-events-none" style={{ animationDelay: '0.4s' }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <FileText className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Technical Explanation</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          For technical deep dives
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="fade-in-up">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-11/12"></div>
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-10/12"></div>
+                    <div className="h-4 bg-muted rounded w-full"></div>
+                    <div className="h-4 bg-muted rounded w-9/12"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Rate Limit Info - De-emphasized */}
+          {rateLimitInfo && rateLimitInfo.remaining < 2 && (
+            <Alert className="mb-6 fade-in-up" variant="default">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-sm text-muted-foreground">
+                <span>
+                  Requests remaining: <strong>{rateLimitInfo.remaining}</strong>
+                  {rateLimitInfo.resetTime && (
+                    <span className="ml-2 text-xs">
+                      (resets {new Date(rateLimitInfo.resetTime).toLocaleTimeString()})
+                    </span>
+                  )}
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Output Cards - Reordered by value */}
+          {output && (
+            <div className="space-y-6 fade-in-up mt-12" style={{ animationDelay: '0.1s' }}>
+              <div className="relative mb-6 fade-in-up" style={{ animationDelay: '0.2s' }}>
+                <div className="text-center mb-2">
+                  <h2 className="text-2xl font-bold text-foreground gradient-text">Your Results</h2>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const allText = [
+                      'RESUME BULLETS:',
+                      ...(getDisplayContent('resume-bullets', output.resumeBullets) as string[]).map(b => '• ' + b),
+                      '',
+                      'INTERVIEW PITCH:',
+                      getDisplayContent('interview-pitch', output.interviewPitch) as string,
+                      '',
+                      'TECHNICAL EXPLANATION:',
+                      getDisplayContent('technical-explanation', output.technicalExplanation) as string,
+                    ].join('\n')
+                    copyToClipboard(allText, 'all')
+                  }}
+                  className="absolute top-0 right-0 shrink-0 transition-all"
+                >
+                  {copied === 'all' ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Copied All
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Copy All Results
+                    </>
+                  )}
+                </Button>
+                <p className="text-center text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
+              </div>
+
+              {/* 1. Resume Bullets - Most actionable, shown first */}
+              <Card className="border-l-[4px] border-l-foreground card-lift fade-in-up" style={{ animationDelay: '0.3s' }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <Award className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Resume Bullets</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          For resumes and applications
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const content = output.resumeBullets.join('\n')
+                            handleRefine(content, 'resume-bullets', 'make-concise')
+                          }}
+                          disabled={refining?.type === 'resume-bullets'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'resume-bullets' && refining.action === 'make-concise' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Make concise'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const content = output.resumeBullets.join('\n')
+                            handleRefine(content, 'resume-bullets', 'add-metrics')
+                          }}
+                          disabled={refining?.type === 'resume-bullets'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'resume-bullets' && refining.action === 'add-metrics' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Add metrics'
+                          )}
+                        </Button>
+                        <Select
+                          value=""
+                          onValueChange={(value: RefineAction) => {
+                            const content = output.resumeBullets.join('\n')
+                            handleRefine(content, 'resume-bullets', value)
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'resume-bullets'}>
+                            <SelectValue placeholder="More...">
+                              {refining?.type === 'resume-bullets' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                'More...'
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="make-senior">Make it more senior</SelectItem>
+                            <SelectItem value="faang-style">FAANG-style</SelectItem>
+                            <SelectItem value="more-impact">Emphasize impact</SelectItem>
+                            <SelectItem value="simplify">Simplify</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const bullets = getDisplayContent('resume-bullets', output.resumeBullets) as string[]
+                          copyToClipboard(bullets.map(b => '• ' + b).join('\n'), 'resume')
+                        }}
+                        className="shrink-0"
+                      >
+                        {copied === 'resume' ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                  {refinedContent['resume-bullets'] && (
+                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                      <span className="text-sm text-foreground flex items-center gap-2">
+                        <Check className="h-4 w-4" />
+                        Refined version
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRefinedContent(prev => {
+                            const { 'resume-bullets': _, ...rest } = prev
+                            return rest
+                          })
+                          toast.info('Reverted to original')
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        Revert
+                      </Button>
+                    </div>
+                  )}
+                  <ul className="text-foreground leading-relaxed text-base font-medium list-disc pl-5 space-y-3">
+                    {(getDisplayContent('resume-bullets', output.resumeBullets) as string[]).map((bullet, i) => (
+                      <li key={i} className="pl-2">{bullet}</li>
                     ))}
                   </ul>
                 </CardContent>
               </Card>
 
-              <Card className="shadow-lg hover:shadow-xl transition-shadow">
+              {/* 2. Interview Pitch - Second most actionable */}
+              <Card className=" transition-shadow border-l-4 border-l-foreground card-lift fade-in-up " style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5" />
-                      Interview Pitch
-                    </CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyToClipboard(output.interviewPitch, 'pitch')}
-                      className="shrink-0"
-                    >
-                      {copied === 'pitch' ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" />
-                          Copy
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <MessageSquare className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Interview Pitch</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          Ideal for "Tell me about a project" questions
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleRefine(output.interviewPitch, 'interview-pitch', 'make-concise')
+                          }}
+                          disabled={refining?.type === 'interview-pitch'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'interview-pitch' && refining.action === 'make-concise' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Make concise'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleRefine(output.interviewPitch, 'interview-pitch', 'add-metrics')
+                          }}
+                          disabled={refining?.type === 'interview-pitch'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'interview-pitch' && refining.action === 'add-metrics' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Add metrics'
+                          )}
+                        </Button>
+                        <Select
+                          value=""
+                          onValueChange={(value: RefineAction) => {
+                            handleRefine(output.interviewPitch, 'interview-pitch', value)
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'interview-pitch'}>
+                            <SelectValue placeholder="More...">
+                              {refining?.type === 'interview-pitch' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                'More...'
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="make-senior">Make it more senior</SelectItem>
+                            <SelectItem value="faang-style">FAANG-style</SelectItem>
+                            <SelectItem value="more-impact">Emphasize impact</SelectItem>
+                            <SelectItem value="simplify">Simplify</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const content = getDisplayContent('interview-pitch', output.interviewPitch) as string
+                          copyToClipboard(content, 'pitch')
+                        }}
+                        className="shrink-0"
+                      >
+                        {copied === 'pitch' ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                  {refinedContent['interview-pitch'] && (
+                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                      <span className="text-sm text-foreground flex items-center gap-2">
+                        <Check className="h-4 w-4" />
+                        Refined version
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRefinedContent(prev => {
+                            const { 'interview-pitch': _, ...rest } = prev
+                            return rest
+                          })
+                          toast.info('Reverted to original')
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        Revert
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
-                    {output.interviewPitch}
+                    {getDisplayContent('interview-pitch', output.interviewPitch) as string}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 3. Technical Explanation - Reference material, shown last */}
+              <Card className="border-l-4 border-l-foreground card-lift fade-in-up" style={{ animationDelay: '0.5s' }}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <FileText className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Technical Explanation</CardTitle>
+                        <CardDescription className="mt-0.5">
+                          For technical deep dives
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleRefine(output.technicalExplanation, 'technical-explanation', 'make-concise')
+                          }}
+                          disabled={refining?.type === 'technical-explanation'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'technical-explanation' && refining.action === 'make-concise' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Make concise'
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            handleRefine(output.technicalExplanation, 'technical-explanation', 'add-metrics')
+                          }}
+                          disabled={refining?.type === 'technical-explanation'}
+                          className="h-8 text-xs hover-scale transition-all"
+                        >
+                          {refining?.type === 'technical-explanation' && refining.action === 'add-metrics' ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            'Add metrics'
+                          )}
+                        </Button>
+                        <Select
+                          value=""
+                          onValueChange={(value: RefineAction) => {
+                            handleRefine(output.technicalExplanation, 'technical-explanation', value)
+                          }}
+                        >
+                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'technical-explanation'}>
+                            <SelectValue placeholder="More...">
+                              {refining?.type === 'technical-explanation' ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                'More...'
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="make-senior">Make it more senior</SelectItem>
+                            <SelectItem value="faang-style">FAANG-style</SelectItem>
+                            <SelectItem value="more-impact">Emphasize impact</SelectItem>
+                            <SelectItem value="simplify">Simplify</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const content = getDisplayContent('technical-explanation', output.technicalExplanation) as string
+                          copyToClipboard(content, 'technical')
+                        }}
+                        className="shrink-0"
+                      >
+                        {copied === 'technical' ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                  {refinedContent['technical-explanation'] && (
+                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                      <span className="text-sm text-foreground flex items-center gap-2">
+                        <Check className="h-4 w-4" />
+                        Refined version
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setRefinedContent(prev => {
+                            const { 'technical-explanation': _, ...rest } = prev
+                            return rest
+                          })
+                          toast.info('Reverted to original')
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        Revert
+                      </Button>
+                    </div>
+                  )}
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
+                    {getDisplayContent('technical-explanation', output.technicalExplanation) as string}
                   </p>
                 </CardContent>
               </Card>
@@ -593,10 +1170,18 @@ export default function Home() {
           {/* Footer */}
           <footer className="mt-16 pt-8 border-t text-center text-sm text-muted-foreground">
             <p className="mb-2">
-              Made with <span className="text-destructive">♥</span> to help developers explain their projects better
+              Built to help developers explain their projects better
             </p>
             <p className="text-xs">
-              Powered by OpenAI GPT-4o-mini
+              Optimized for technical resumes and interviews
+              <span className="mx-2">•</span>
+              <span
+                onClick={() => toast.info('Powered by OpenAI GPT-4o-mini')}
+                className="underline hover:text-foreground transition-colors cursor-pointer"
+                title="Click to see model info"
+              >
+                About
+              </span>
             </p>
           </footer>
         </div>
