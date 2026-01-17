@@ -35,6 +35,96 @@ function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
   }
 }
 
+// Recursively fetch all files from a directory in the repository
+async function fetchDirectoryContents(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  path: string = '',
+  maxFileSize: number = 100000, // 100KB per file
+  maxTotalSize: number = 5000000, // 5MB total
+  excludeDirs: string[] = ['node_modules', '.git', 'dist', 'build', '.next', 'venv', '__pycache__', '.venv', 'target', 'bin', 'obj']
+): Promise<{ files: Map<string, string>, totalSize: number }> {
+  const files = new Map<string, string>()
+  let totalSize = 0
+
+  async function traverse(currentPath: string): Promise<void> {
+    // Skip excluded directories
+    const pathParts = currentPath.split('/').filter(Boolean)
+    if (pathParts.some(part => excludeDirs.includes(part))) {
+      return
+    }
+
+    try {
+      const { data } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: currentPath || '',
+      })
+
+      if (Array.isArray(data)) {
+        // It's a directory
+        for (const item of data) {
+          if (item.type === 'file') {
+            // Skip binary files and large files
+            if (item.size && item.size > maxFileSize) {
+              continue
+            }
+            if (totalSize + (item.size || 0) > maxTotalSize) {
+              continue
+            }
+
+            // Skip binary file extensions
+            const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.pdf', '.zip', '.tar', '.gz', '.exe', '.dll', '.so', '.dylib']
+            const isBinary = binaryExtensions.some(ext => item.name.toLowerCase().endsWith(ext))
+            if (isBinary) {
+              continue
+            }
+
+            try {
+              const fileData = await octokit.repos.getContent({
+                owner,
+                repo,
+                path: item.path,
+              })
+              
+              if ('content' in fileData.data && fileData.data.content) {
+                const content = Buffer.from(fileData.data.content, 'base64').toString('utf-8')
+                files.set(item.path, content)
+                totalSize += item.size || 0
+              }
+            } catch {
+              // Skip files that can't be read
+            }
+          } else if (item.type === 'dir') {
+            await traverse(item.path)
+          }
+        }
+      } else if (data.type === 'file') {
+        // Single file
+        if (data.size && data.size <= maxFileSize && totalSize + data.size <= maxTotalSize) {
+          const binaryExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf', '.eot', '.pdf', '.zip', '.tar', '.gz', '.exe', '.dll', '.so', '.dylib']
+          const isBinary = binaryExtensions.some(ext => data.name.toLowerCase().endsWith(ext))
+          
+          if (!isBinary && 'content' in data && data.content) {
+            const content = Buffer.from(data.content, 'base64').toString('utf-8')
+            files.set(data.path, content)
+            totalSize += data.size || 0
+          }
+        }
+      }
+    } catch (error: any) {
+      // Skip directories/files that can't be accessed
+      if (error.status !== 404) {
+        console.warn(`Failed to fetch ${currentPath}:`, error.message)
+      }
+    }
+  }
+
+  await traverse(path)
+  return { files, totalSize }
+}
+
 // Fetch repository information from GitHub
 async function fetchGitHubRepoInfo(owner: string, repo: string): Promise<string> {
   const octokit = new Octokit({
@@ -62,39 +152,30 @@ async function fetchGitHubRepoInfo(owner: string, repo: string): Promise<string>
       // README might not exist, continue without it
     }
 
-    // Fetch package.json if available (for Node.js projects)
-    let packageJsonContent = ''
-    try {
-      const { data: packageData } = await octokit.repos.getContent({
-        owner,
-        repo,
-        path: 'package.json',
-      })
-      if ('content' in packageData && packageData.content) {
-        packageJsonContent = Buffer.from(packageData.content, 'base64').toString('utf-8')
-      }
-    } catch {
-      // package.json might not exist, continue without it
-    }
+    // Recursively fetch all repository files
+    const { files, totalSize } = await fetchDirectoryContents(octokit, owner, repo)
 
     // Build project description from fetched data
     let description = `Repository: ${owner}/${repo}\n`
     description += `Description: ${repoData.description || 'No description provided'}\n`
     description += `Language: ${repoData.language || 'Not specified'}\n`
     description += `Stars: ${repoData.stargazers_count}\n`
-    description += `Forks: ${repoData.forks_count}\n\n`
+    description += `Forks: ${repoData.forks_count}\n`
+    description += `Files analyzed: ${files.size}\n`
+    description += `Total size: ${(totalSize / 1024).toFixed(2)} KB\n\n`
 
     if (readmeContent) {
-      description += `README:\n${readmeContent}\n\n`
+      description += `=== README ===\n${readmeContent}\n\n`
     }
 
-    if (packageJsonContent) {
-      try {
-        const packageJson = JSON.parse(packageJsonContent)
-        description += `Package.json:\n${JSON.stringify(packageJson, null, 2)}\n\n`
-      } catch {
-        description += `Package.json (raw):\n${packageJsonContent}\n\n`
+    // Add all fetched files
+    const sortedFiles = Array.from(files.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+    for (const [filePath, content] of sortedFiles) {
+      // Skip README since we already added it above
+      if (filePath.toLowerCase().includes('readme')) {
+        continue
       }
+      description += `=== ${filePath} ===\n${content}\n\n`
     }
 
     return description
@@ -226,11 +307,15 @@ Generate three outputs based on the project description above:
    - Match the technical depth to the audience (${audience})
    - Use a ${tone} tone
 
-2. Resume Bullet (single line):
-   - Start with a strong action verb
-   - Include a quantifiable impact or key technical achievement if mentioned
-   - Be specific about technologies or approaches used
-   - Keep it concise and impactful
+2. Resume Bullets (exactly 2–3 bullets; output as a JSON array):
+   - Each bullet must start with a strong action verb (Built, Created, Developed, Designed, Implemented, etc.)
+   - Be concise and direct: action verb + what was built + key technologies used
+   - Keep bullets short (typically one line, max two lines)
+   - Focus on the core accomplishment and tech stack, not verbose descriptions
+   - Avoid flowery language, excessive adjectives, or lengthy explanations
+   - Each bullet should highlight a distinct aspect (e.g., frontend, backend, integration, or specific feature)
+   - Format: "Action verb + what + using/with [technologies]" (e.g., "Built an AI-augmented digital audio workstation that allows users to generate and edit audio tracks.")
+   - Only include information explicitly stated in the project description.
 
 3. Interview Pitch (30-second spoken format):
    - Natural, conversational language suitable for speaking
@@ -248,9 +333,11 @@ CRITICAL CONSTRAINTS:
 Return your response as a JSON object with exactly these fields:
 {
   "technicalExplanation": "...",
-  "resumeBullet": "...",
+  "resumeBullets": ["first bullet text", "second bullet text", "optional third bullet"],
   "interviewPitch": "..."
-}`
+}
+
+resumeBullets must be an array of exactly 2 or 3 strings. Do not include bullet characters (• or -) in the text.`
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -270,9 +357,14 @@ Return your response as a JSON object with exactly these fields:
   const result = JSON.parse(content)
 
   // Validate the response structure
-  if (!result.technicalExplanation || !result.resumeBullet || !result.interviewPitch) {
+  if (!result.technicalExplanation || !result.interviewPitch) {
     throw new Error('Invalid response format from OpenAI')
   }
+  const bullets = result.resumeBullets
+  if (!Array.isArray(bullets) || bullets.length < 2) {
+    throw new Error('Invalid response format from OpenAI: resumeBullets must be an array of 2 or 3 strings')
+  }
+  result.resumeBullets = bullets.slice(0, 3).map((b: unknown) => (typeof b === 'string' ? b : String(b)))
 
   return result
 }

@@ -26,7 +26,7 @@ import {
 
 interface Output {
   technicalExplanation: string
-  resumeBullet: string
+  resumeBullets: string[]
   interviewPitch: string
 }
 
@@ -237,7 +237,7 @@ export default function Home() {
               </h1>
             </div>
             <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto">
-              Transform your project into clear explanations, resume bullets, and interview pitches
+              Transform your project into clear explanations, resume bullets, and pitches
             </p>
           </div>
 
@@ -523,12 +523,12 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Zap className="h-5 w-5" />
-                      Resume Bullet
+                      Resume Bullets
                     </CardTitle>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => copyToClipboard(output.resumeBullet, 'resume')}
+                      onClick={() => copyToClipboard(output.resumeBullets.map(b => '• ' + b).join('\n'), 'resume')}
                       className="shrink-0"
                     >
                       {copied === 'resume' ? (
@@ -546,9 +546,11 @@ export default function Home() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-foreground leading-relaxed text-lg font-medium">
-                    {output.resumeBullet}
-                  </p>
+                  <ul className="text-foreground leading-relaxed text-base font-medium list-disc pl-5 space-y-2">
+                    {output.resumeBullets.map((bullet, i) => (
+                      <li key={i}>{bullet}</li>
+                    ))}
+                  </ul>
                 </CardContent>
               </Card>
 

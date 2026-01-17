@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'ExplainItBack',
-  description: 'Transform your project description into clear technical explanations, resume bullets, and interview pitches',
+  description: 'Transform your project description into clear technical explanations, resume bullets, and pitches',
 }
 
 export default function RootLayout({
