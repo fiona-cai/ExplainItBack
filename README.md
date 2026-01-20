@@ -1,4 +1,5 @@
 # ExplainItBack
+> By Fiona Cai and Kaibo Huang
 
 A minimal web app that transforms raw project descriptions into:
 - Clear technical explanations (5-7 sentences)
