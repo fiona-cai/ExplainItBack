@@ -145,7 +145,7 @@ class RedisClient {
             this.switchToInMemory();
             // Remove all listeners to stop error spam
             redisInstance.removeAllListeners();
-            redisInstance.disconnect().catch(() => {});
+            redisInstance.disconnect();
           } else {
             // In production, log but don't switch
             console.error('Redis connection error:', err);
@@ -299,7 +299,7 @@ class RedisClient {
       if (this.instance && !(this.instance instanceof InMemoryStore)) {
         const redisInstance = this.instance as Redis;
         redisInstance.removeAllListeners();
-        redisInstance.disconnect().catch(() => {});
+        redisInstance.disconnect();
       }
       // Only create new instance if we don't already have one
       if (!this.instance || !(this.instance instanceof InMemoryStore)) {
