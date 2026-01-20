@@ -638,9 +638,9 @@ export default function Home() {
 
           {/* Error Alert */}
           {error && (
-            <Alert variant="destructive" className="mb-6 fade-in-up">
+            <Alert variant="destructive" className="mb-6 fade-in-up border-0">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
@@ -763,11 +763,11 @@ export default function Home() {
 
           {/* Rate Limit Info - De-emphasized */}
           {rateLimitInfo && rateLimitInfo.remaining < 2 && (
-            <Alert className="mb-6 fade-in-up" variant="default">
-              <AlertCircle className="h-4 w-4" />
+            <Alert className="mb-6 fade-in-up border-0" variant="default">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
               <AlertDescription className="text-sm text-muted-foreground">
                 <span>
-                  Requests remaining: <strong>{rateLimitInfo.remaining}</strong>
+                  Requests remaining: <strong className="text-foreground">{rateLimitInfo.remaining}</strong>
                   {rateLimitInfo.resetTime && (
                     <span className="ml-2 text-xs">
                       (resets {new Date(rateLimitInfo.resetTime).toLocaleTimeString()})
