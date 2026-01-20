@@ -14,7 +14,7 @@ const getRedisUrl = (): string => {
 // Interface for Redis-like operations
 interface RedisLike {
   get(key: string): Promise<string | null>;
-  setex(key: string, seconds: number, value: string): Promise<void>;
+  setex(key: string, seconds: number, value: string): Promise<string>;
   del(key: string): Promise<number>;
   ping(): Promise<string>;
 }
@@ -63,12 +63,13 @@ class InMemoryStore implements RedisLike {
     return item.value;
   }
 
-  async setex(key: string, seconds: number, value: string): Promise<void> {
+  async setex(key: string, seconds: number, value: string): Promise<string> {
     const expiry = Date.now() + seconds * 1000;
     this.store.set(key, { value, expiry });
     if (process.env.NODE_ENV === 'development') {
       console.log(`[InMemoryStore] Saved key: ${key}, store size: ${this.store.size}`);
     }
+    return 'OK';
   }
 
   async del(key: string): Promise<number> {
@@ -351,7 +352,7 @@ export const redis = {
       throw error;
     }
   },
-  setex: async (key: string, seconds: number, value: string): Promise<void> => {
+  setex: async (key: string, seconds: number, value: string): Promise<string> => {
     // Ensure we're using the right instance
     if (RedisClient.isUsingInMemory()) {
       const instance = RedisClient.getInstance();
