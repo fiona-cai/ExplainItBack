@@ -11,16 +11,17 @@ import { getNextGitHubToken, hasGitHubToken, getTokenCount, getTokenUsageStats }
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-// Validate environment variables on module load
+// Validate environment variables - don't crash on module load
+let openai: OpenAI | null = null
 try {
   validateEnv()
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
 } catch (error) {
   console.error('Environment validation failed:', error)
+  // openai will be null, API routes will handle this
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 // Token estimation: ~4 characters = 1 token (rough estimate)
 // OpenAI context window: 128K tokens total
@@ -476,7 +477,7 @@ resumeBullets must be an array of exactly 2 or 3 strings. Do not include bullet 
   }
 
   const completion = await retryWithBackoff(async () => {
-    return await openai.chat.completions.create({
+    return await openai!.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
@@ -520,6 +521,14 @@ resumeBullets must be an array of exactly 2 or 3 strings. Do not include bullet 
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if OpenAI client is initialized
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.' },
+        { status: 500 }
+      )
+    }
+
     // Rate limiting: Configurable per-user and global limits
     // Per-user limit: Prevents abuse from individual users
     // Global limit: Handles total traffic volume
