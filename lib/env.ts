@@ -23,13 +23,5 @@ export function validateEnv() {
 }
 
 // Validate on module load (for server-side)
-if (typeof window === 'undefined') {
-  try {
-    validateEnv()
-  } catch (error) {
-    // Only log in development, don't crash in production
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Environment validation warning:', error)
-    }
-  }
-}
+// Don't validate on module load to avoid crashing the server
+// Validation should be called explicitly in API routes where needed

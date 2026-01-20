@@ -6,15 +6,17 @@ import { checkRateLimit, getClientIdentifier } from '@/lib/rateLimit'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+// Validate environment variables - don't crash on module load
+let openai: OpenAI | null = null
 try {
   validateEnv()
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
 } catch (error) {
   console.error('Environment validation failed:', error)
+  // openai will be null, API routes will handle this
 }
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 interface RefineRequest {
   content: string
@@ -75,7 +77,7 @@ Refinement request: ${prompt}
 
 Please provide the refined version. Return only the refined content, no explanations or meta-commentary.`
 
-  const completion = await openai.chat.completions.create({
+  const completion = await openai!.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
@@ -95,6 +97,14 @@ Please provide the refined version. Return only the refined content, no explanat
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if OpenAI client is initialized
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.' },
+        { status: 500 }
+      )
+    }
+
     // Rate limiting
     const clientId = getClientIdentifier(request)
     const rateLimit = checkRateLimit(clientId, 20, 60 * 60 * 1000) // 20 refines per hour

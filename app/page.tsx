@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Toaster } from '@/components/ui/toaster'
 import { toast } from 'sonner'
+import ColorBends from '@/components/ColorBends'
 import { 
   Copy, 
   Check, 
@@ -364,57 +365,83 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <div className="min-h-screen bg-background relative">
+        {/* Background */}
+        <div className="fixed inset-0 z-0 bg-background">
+          <ColorBends
+            rotation={180}
+            autoRotate={-5}
+            speed={0.07}
+            scale={1.2}
+            frequency={1.4}
+            warpStrength={0}
+            mouseInfluence={2}
+            parallax={0.9}
+            noise={0}
+            transparent
+          />
+        </div>
+        {/* Content */}
+        <div className="relative z-10">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           {/* Header */}
-          <div className="text-center mb-8 sm:mb-12 space-y-4 fade-in-up overflow-visible">
-            <h1 className="text-4xl sm:text-5xl font-bold text-foreground raleway fade-in-up leading-tight pt-2 pb-1">
+          <div className="text-center mb-10 sm:mb-16 space-y-5 fade-in-up overflow-visible">
+            <h1 className="text-5xl sm:text-6xl font-bold text-foreground raleway fade-in-up leading-tight tracking-tight">
               ExplainIt<span className="italic font-light">Back.</span>
             </h1>
-            <div className="space-y-2">
-              <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto fade-in-up" style={{ animationDelay: '0.1s' }}>
+            <div className="space-y-3">
+              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto fade-in-up font-mono" style={{ animationDelay: '0.1s' }}>
                 git explain &lt;repository_url&gt;
               </p>
             </div>
           </div>
 
           {/* Summary */}
-          <Card className="border-2 mb-8 fade-in-up" style={{ animationDelay: '0.15s' }}>
+          <Card className="glass-card section-spacing fade-in-up border-0" style={{ animationDelay: '0.15s' }}>
             <CardContent className="pt-6">
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold text-foreground">What you'll get</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Award className="h-5 w-5 text-foreground" />
-                      <h3 className="font-medium text-foreground">Resume Bullets</h3>
+              <div className="card-content-spacing">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground mb-1">What you'll get</h2>
+                  <p className="text-sm text-muted-foreground">Three tailored outputs for your project</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <Award className="h-5 w-5 text-foreground" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">Resume Bullets</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       Action-oriented bullet points highlighting technologies and impact, ready for your resume and LinkedIn.
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5 text-foreground" />
-                      <h3 className="font-medium text-foreground">Interview Pitch</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <MessageSquare className="h-5 w-5 text-foreground" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">Interview Pitch</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       A concise explanation perfect for "Tell me about a project" questions, tailored to your audience.
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-foreground" />
-                      <h3 className="font-medium text-foreground">Technical Explanation</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <FileText className="h-5 w-5 text-foreground" />
+                      </div>
+                      <h3 className="font-semibold text-foreground">Technical Explanation</h3>
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
                       Deep dive into architecture, tools, and implementation details for technical discussions.
                     </p>
                   </div>
                 </div>
-                <div className="pt-2 border-t">
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">How it works:</span> We analyze your repository's code, structure, and documentation to generate professional explanations tailored to your chosen audience (Recruiter, Engineer, Hiring Manager, or Founder/Product) and tone.
+                <div className="divider-subtle pt-4">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-foreground">How it works:</span> We analyze your repository's code, structure, and documentation to generate professional explanations tailored to your chosen audience (Recruiter, Engineer, Hiring Manager, or Founder/Product) and tone.
                   </p>
                 </div>
               </div>
@@ -423,12 +450,12 @@ export default function Home() {
 
           {/* Input Form */}
           <form onSubmit={handleSubmit} className="space-y-6 mb-6">
-            <Card className="border-2 card-lift fade-in-up" style={{ animationDelay: '0.1s' }}>
-              <CardHeader className="pb-4">
+            <Card className="glass-card card-lift fade-in-up border-0 section-spacing" style={{ animationDelay: '0.1s' }}>
+              <CardHeader className="glass-card-header">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-xl">GitHub Repository</CardTitle>
-                    <CardDescription className="mt-0.5">
+                    <CardTitle className="text-xl font-semibold">GitHub Repository</CardTitle>
+                    <CardDescription className="mt-1.5 text-muted-foreground">
                       Enter your repository URL
                     </CardDescription>
                   </div>
@@ -446,9 +473,9 @@ export default function Home() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label htmlFor="githubUrl" className="text-sm font-medium flex items-center gap-2">
+                <div className="card-content-spacing">
+                  <div className="space-y-3">
+                    <label htmlFor="githubUrl" className="text-sm font-semibold flex items-center gap-2 text-foreground">
                       <Github className="h-4 w-4" />
                       GitHub URL
                     </label>
@@ -462,7 +489,7 @@ export default function Home() {
                           setGithubRepoInfo(null)
                         }}
                         placeholder="https://github.com/username/repo"
-                        className="text-base fade-in-up transition-all focus:ring-2 focus:ring-foreground/50 flex-1"
+                        className="glass-input text-base fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 flex-1 border-0"
                         style={{ animationDelay: '0.2s' }}
                         required
                       />
@@ -491,7 +518,7 @@ export default function Home() {
                   </div>
 
                   {githubRepoInfo && (
-                    <div className="p-4 bg-muted border border-foreground/20 rounded-lg fade-in-up">
+                    <div className="p-4 glass rounded-lg fade-in-up border-0 transition-all hover:border-foreground/15">
                       <div className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-foreground mt-0.5 shrink-0" />
                         <div className="flex-1 space-y-1">
@@ -522,15 +549,15 @@ export default function Home() {
 
             {/* Configure Output */}
             {githubRepoInfo && (
-            <Card className="border-2 card-lift fade-in-up" style={{ animationDelay: '0.2s' }}>
-              <CardHeader className="pb-4">
+            <Card className="glass-card card-lift fade-in-up border-0 section-spacing" style={{ animationDelay: '0.2s' }}>
+              <CardHeader className="glass-card-header">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-foreground text-background font-bold text-sm">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/10 border border-foreground/20 text-foreground font-semibold text-sm">
                     2
                   </div>
                   <div>
-                    <CardTitle className="text-xl">Configure Output</CardTitle>
-                    <CardDescription className="mt-0.5">
+                    <CardTitle className="text-xl font-semibold">Configure Output</CardTitle>
+                    <CardDescription className="mt-1.5 text-muted-foreground">
                       Set audience and tone
                     </CardDescription>
                   </div>
@@ -540,7 +567,7 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-3">
                       <div>
-                        <label htmlFor="audience" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                        <label htmlFor="audience" className="text-sm font-semibold flex items-center gap-2 mb-2 text-foreground">
                           <Target className="h-4 w-4" />
                           Audience
                         </label>
@@ -583,7 +610,7 @@ export default function Home() {
 
                     <div className="space-y-3">
                       <div>
-                        <label htmlFor="tone" className="text-sm font-semibold flex items-center gap-2 mb-2">
+                        <label htmlFor="tone" className="text-sm font-semibold flex items-center gap-2 mb-2 text-foreground">
                           <MessageSquare className="h-4 w-4" />
                           Tone
                         </label>
@@ -625,7 +652,7 @@ export default function Home() {
                   <Button 
                     type="submit" 
                     disabled={loading} 
-                    className="w-full h-12 text-base font-semibold  transition-all mt-6 " 
+                    className="glass-button-primary w-full h-12 text-base transition-all mt-8 border-0" 
                     size="lg"
                   >
                     {loading ? (
@@ -647,9 +674,9 @@ export default function Home() {
 
           {/* Error Alert */}
           {error && (
-            <Alert variant="destructive" className="mb-6 fade-in-up">
+            <Alert variant="destructive" className="mb-6 fade-in-up border-0">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
@@ -677,15 +704,15 @@ export default function Home() {
               </div>
 
               {/* Blurred Resume Bullets Preview */}
-              <Card className="border-l-[4px] border-l-foreground card-lift fade-in-up blur-sm pointer-events-none" style={{ animationDelay: '0.2s' }}>
+              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.2s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <Award className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Resume Bullets</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Resume Bullets</CardTitle>
                         <CardDescription className="mt-0.5">
                           For resumes and applications
                         </CardDescription>
@@ -712,15 +739,15 @@ export default function Home() {
               </Card>
 
               {/* Blurred Interview Pitch Preview */}
-              <Card className="border-l-4 border-l-foreground card-lift fade-in-up blur-sm pointer-events-none" style={{ animationDelay: '0.3s' }}>
+              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <MessageSquare className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Interview Pitch</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Interview Pitch</CardTitle>
                         <CardDescription className="mt-0.5">
                           For interview questions
                         </CardDescription>
@@ -740,15 +767,15 @@ export default function Home() {
               </Card>
 
               {/* Blurred Technical Explanation Preview */}
-              <Card className=" border-l-4 border-l-foreground card-lift fade-in-up  blur-sm pointer-events-none" style={{ animationDelay: '0.4s' }}>
+              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.4s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <FileText className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Technical Explanation</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Technical Explanation</CardTitle>
                         <CardDescription className="mt-0.5">
                           For technical deep dives
                         </CardDescription>
@@ -772,11 +799,11 @@ export default function Home() {
 
           {/* Rate Limit Info - De-emphasized */}
           {rateLimitInfo && rateLimitInfo.remaining < 2 && (
-            <Alert className="mb-6 fade-in-up" variant="default">
-              <AlertCircle className="h-4 w-4" />
+            <Alert className="mb-6 fade-in-up border-0" variant="default">
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
               <AlertDescription className="text-sm text-muted-foreground">
                 <span>
-                  Requests remaining: <strong>{rateLimitInfo.remaining}</strong>
+                  Requests remaining: <strong className="text-foreground">{rateLimitInfo.remaining}</strong>
                   {rateLimitInfo.resetTime && (
                     <span className="ml-2 text-xs">
                       (resets {new Date(rateLimitInfo.resetTime).toLocaleTimeString()})
@@ -828,15 +855,15 @@ export default function Home() {
               </div>
 
               {/* 1. Resume Bullets - Most actionable, shown first */}
-              <Card className="border-l-[4px] border-l-foreground card-lift fade-in-up" style={{ animationDelay: '0.3s' }}>
+              <Card className="glass-card card-lift fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <Award className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Resume Bullets</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Resume Bullets</CardTitle>
                         <CardDescription className="mt-0.5">
                           For resumes and applications
                         </CardDescription>
@@ -926,7 +953,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['resume-bullets'] && (
-                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
                       <span className="text-sm text-foreground flex items-center gap-2">
                         <Check className="h-4 w-4" />
                         Refined version
@@ -956,15 +983,15 @@ export default function Home() {
               </Card>
 
               {/* 2. Interview Pitch - Second most actionable */}
-              <Card className=" transition-shadow border-l-4 border-l-foreground card-lift fade-in-up " style={{ animationDelay: '0.3s' }}>
+              <Card className="glass-card transition-shadow card-lift fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <MessageSquare className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Interview Pitch</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Interview Pitch</CardTitle>
                         <CardDescription className="mt-0.5">
                           Ideal for "Tell me about a project" questions
                         </CardDescription>
@@ -1051,7 +1078,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['interview-pitch'] && (
-                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
                       <span className="text-sm text-foreground flex items-center gap-2">
                         <Check className="h-4 w-4" />
                         Refined version
@@ -1079,15 +1106,15 @@ export default function Home() {
               </Card>
 
               {/* 3. Technical Explanation - Reference material, shown last */}
-              <Card className="border-l-4 border-l-foreground card-lift fade-in-up" style={{ animationDelay: '0.5s' }}>
+              <Card className="glass-card card-lift fade-in-up border-0" style={{ animationDelay: '0.5s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-muted">
+                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
                         <FileText className="h-5 w-5 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl">Technical Explanation</CardTitle>
+                        <CardTitle className="text-xl font-semibold">Technical Explanation</CardTitle>
                         <CardDescription className="mt-0.5">
                           For technical deep dives
                         </CardDescription>
@@ -1174,7 +1201,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['technical-explanation'] && (
-                    <div className="mb-3 p-2 bg-muted border border-foreground/20 rounded-md flex items-center justify-between">
+                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
                       <span className="text-sm text-foreground flex items-center gap-2">
                         <Check className="h-4 w-4" />
                         Refined version
@@ -1257,6 +1284,7 @@ export default function Home() {
               </span>
             </p>
           </footer>
+          </div>
         </div>
       </div>
       <Toaster position="top-right" richColors />

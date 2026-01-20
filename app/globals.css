@@ -12,25 +12,47 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 0 0% 0%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
-    --primary: 0 0% 0%;
+    --foreground: 0 0% 10%;
+    --card: 255 255 255;
+    --card-foreground: 0 0% 10%;
+    --popover: 255 255 255;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
     --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 0%;
+    --secondary-foreground: 0 0% 10%;
     --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 40%;
+    --muted-foreground: 0 0% 45%;
     --accent: 0 0% 96%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 0% 0%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 0% 90%;
-    --input: 0 0% 90%;
-    --ring: 0 0% 0%;
-    --radius: 0.5rem;
+    --input: 0 0% 95%;
+    --ring: 0 0% 10%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 0 0% 5%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 25%;
+    --input: 0 0% 20%;
+    --ring: 0 0% 98%;
   }
 }
 
@@ -122,11 +144,12 @@
 
 /* Minimal Card Lift */
 .card-lift {
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card-lift:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
 
 
@@ -251,4 +274,111 @@
 
 .input-focus-glow:focus {
   animation: inputFocus 2s ease-in-out infinite;
+}
+
+/* Clean Glassmorphism Styles */
+@layer utilities {
+  .glass {
+    background: rgba(20, 20, 25, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-card {
+    background: rgba(18, 18, 22, 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  }
+
+  .glass-card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .glass-input {
+    background: rgba(20, 20, 25, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    color: hsl(var(--foreground));
+  }
+
+  .glass-input::placeholder {
+    color: hsl(var(--muted-foreground));
+  }
+
+  .glass-input:focus {
+    background: rgba(25, 25, 30, 0.5);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-button {
+    background: rgba(30, 30, 35, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    color: hsl(var(--foreground));
+  }
+
+  .glass-button:hover {
+    background: rgba(35, 35, 40, 0.7);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .glass-button:active {
+    background: rgba(25, 25, 30, 0.6);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .glass-button-primary {
+    background: rgba(40, 40, 45, 0.8);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    color: hsl(var(--foreground));
+    font-weight: 600;
+  }
+
+  .glass-button-primary:hover {
+    background: rgba(50, 50, 55, 0.9);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    transform: translateY(-1px);
+  }
+
+  .glass-button-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Better spacing utilities */
+  .section-spacing {
+    margin-bottom: 2rem;
+  }
+
+  @media (min-width: 640px) {
+    .section-spacing {
+      margin-bottom: 3rem;
+    }
+  }
+
+  /* Improved card content spacing */
+  .card-content-spacing > * + * {
+    margin-top: 1.5rem;
+  }
+
+  /* Subtle divider */
+  .divider-subtle {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 1.5rem 0;
+  }
 }
