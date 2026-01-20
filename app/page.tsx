@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -63,7 +64,9 @@ const MAX_INPUT_CHARACTERS = Math.floor(MAX_PROJECT_TOKENS / TOKENS_PER_CHAR) //
 const MAX_INPUT_CHARACTERS_WARNING = Math.floor(MAX_PROJECT_TOKENS * 0.75 / TOKENS_PER_CHAR) // ~366,000 characters
 
 export default function Home() {
+  const router = useRouter()
   const [githubUrl, setGithubUrl] = useState('')
+  const [startingInterview, setStartingInterview] = useState(false)
   const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'hiring-manager' | 'founder-product'>('engineer')
   const [tone, setTone] = useState<'confident' | 'concise' | 'conversational' | 'technical'>('confident')
   const [output, setOutput] = useState<Output | null>(null)
@@ -268,6 +271,39 @@ export default function Home() {
     setOutput(null)
     setError(null)
     toast.info('Form cleared')
+  }
+
+  const startInterview = async () => {
+    if (!githubUrl) {
+      toast.error('Please enter a GitHub URL first')
+      return
+    }
+
+    setStartingInterview(true)
+    try {
+      const response = await fetch('/api/interview/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repoUrl: githubUrl,
+          repoId: githubRepoInfo ? `${githubRepoInfo.owner}/${githubRepoInfo.name}` : githubUrl
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.sessionId) {
+        toast.success('Starting Interview Mode...')
+        router.push(`/interview/${data.sessionId}`)
+      } else {
+        toast.error(data.error || 'Failed to start interview mode')
+      }
+    } catch (error) {
+      console.error('Failed to start interview:', error)
+      toast.error('Failed to start interview mode')
+    } finally {
+      setStartingInterview(false)
+    }
   }
 
   const handleRefine = async (
@@ -1189,6 +1225,43 @@ export default function Home() {
                   <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
                     {getDisplayContent('technical-explanation', output.technicalExplanation) as string}
                   </p>
+                </CardContent>
+              </Card>
+
+              {/* Interview Mode CTA */}
+              <Card className="border-2 border-dashed border-foreground/30 bg-muted/30 card-lift fade-in-up" style={{ animationDelay: '0.6s' }}>
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-foreground/10">
+                        <Target className="h-6 w-6 text-foreground" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Ready for a Technical Deep Dive?</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Test your understanding of this codebase with AI-powered interview questions
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={startInterview}
+                      disabled={startingInterview}
+                      className="shrink-0"
+                      size="lg"
+                    >
+                      {startingInterview ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <Target className="mr-2 h-5 w-5" />
+                          Enter Interview Mode
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
