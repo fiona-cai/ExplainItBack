@@ -42,8 +42,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<StartInte
     });
   } catch (error) {
     console.error('Error starting interview:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { success: false, error: 'Failed to start interview session' },
+      { 
+        success: false, 
+        error: 'Failed to start interview session',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      },
       { status: 500 }
     );
   }

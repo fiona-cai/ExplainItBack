@@ -1,9 +1,22 @@
 import { v4 as uuidv4 } from 'uuid';
-import { redis } from '@/lib/redis';
+import { redis, RedisClient } from '@/lib/redis';
 import type { InterviewSession, ChatMessage, Question, RepoAnalysis } from '@/types/interview';
 
 const SESSION_PREFIX = 'interview:session:';
 const SESSION_TTL = 60 * 60 * 24; // 24 hours in seconds
+
+// Ensure Redis is connected before operations
+async function ensureRedisConnected(): Promise<void> {
+  try {
+    await RedisClient.connect();
+  } catch (error) {
+    // If already connected, ignore the error
+    const errorMessage = (error as Error).message;
+    if (errorMessage !== 'Redis is already connecting/connected') {
+      throw error;
+    }
+  }
+}
 
 export async function createSession(repoUrl: string, repoId: string): Promise<InterviewSession> {
   const sessionId = uuidv4();
@@ -45,7 +58,14 @@ What would you like to focus on?`,
 
 export async function getSession(sessionId: string): Promise<InterviewSession | null> {
   try {
-    const data = await redis.get(`${SESSION_PREFIX}${sessionId}`);
+    await ensureRedisConnected();
+    const key = `${SESSION_PREFIX}${sessionId}`;
+    const data = await redis.get(key);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Getting session: ${sessionId}, found: ${!!data}`);
+    }
+    
     if (!data) return null;
     return JSON.parse(data) as InterviewSession;
   } catch (error) {
@@ -55,16 +75,32 @@ export async function getSession(sessionId: string): Promise<InterviewSession | 
 }
 
 export async function saveSession(session: InterviewSession): Promise<void> {
-  session.lastActivity = Date.now();
-  await redis.setex(
-    `${SESSION_PREFIX}${session.sessionId}`,
-    SESSION_TTL,
-    JSON.stringify(session)
-  );
+  try {
+    await ensureRedisConnected();
+    session.lastActivity = Date.now();
+    const key = `${SESSION_PREFIX}${session.sessionId}`;
+    const value = JSON.stringify(session);
+    
+    await redis.setex(key, SESSION_TTL, value);
+    
+    // Debug: verify the session was saved
+    if (process.env.NODE_ENV === 'development') {
+      const saved = await redis.get(key);
+      if (!saved) {
+        console.error('Session save verification failed: session was not found after saving');
+      } else {
+        console.log(`Session saved successfully: ${session.sessionId}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error saving session:', error);
+    throw error;
+  }
 }
 
 export async function deleteSession(sessionId: string): Promise<boolean> {
   try {
+    await ensureRedisConnected();
     const result = await redis.del(`${SESSION_PREFIX}${sessionId}`);
     return result > 0;
   } catch (error) {
