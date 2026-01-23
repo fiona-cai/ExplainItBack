@@ -88,7 +88,7 @@ function shouldIncludeFile(path: string): boolean {
 
   // Skip hidden files (except important config files)
   const importantHiddenFiles = ['.env.example', '.gitignore', '.eslintrc', '.prettierrc'];
-  if (fileName.startsWith('.') && !importantHiddenFiles.some(f => fileName.startsWith(f.replace('.', '')))) {
+  if (fileName.startsWith('.') && !importantHiddenFiles.some(f => fileName === f || fileName.startsWith(f))) {
     return false;
   }
 
