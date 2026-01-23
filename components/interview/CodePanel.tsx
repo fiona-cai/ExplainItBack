@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Code2, FileCode } from 'lucide-react';
@@ -17,6 +17,17 @@ export function CodePanel({ snippets, title = 'Related Code' }: CodePanelProps) 
   const [expandedSnippets, setExpandedSnippets] = useState<Set<string>>(
     new Set(snippets.slice(0, 1).map((s) => s.id))
   );
+  const prevSnippetIdsRef = useRef<string>('');
+
+  // Update expanded state when snippets change (e.g., new question)
+  useEffect(() => {
+    const currentIds = snippets.map(s => s.id).join(',');
+    if (currentIds !== prevSnippetIdsRef.current && snippets.length > 0) {
+      // Auto-expand first snippet when new snippets arrive
+      setExpandedSnippets(new Set(snippets.slice(0, 1).map((s) => s.id)));
+      prevSnippetIdsRef.current = currentIds;
+    }
+  }, [snippets]);
 
   const toggleSnippet = (id: string) => {
     setExpandedSnippets((prev) => {
