@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -83,6 +83,50 @@ export default function Home() {
   }>({})
   const [githubRepoInfo, setGithubRepoInfo] = useState<{ name: string; description: string; stars: number; owner: string } | null>(null)
   const [fetchingGithub, setFetchingGithub] = useState(false)
+
+  // Load cached results on mount
+  useEffect(() => {
+    const loadCachedResults = async () => {
+      try {
+        const response = await fetch('/api/cache/results')
+        const data = await response.json()
+
+        if (data.success && data.cached) {
+          setGithubUrl(data.cached.repoUrl)
+          setGithubRepoInfo(data.cached.repoInfo)
+          setOutput(data.cached.output)
+        }
+      } catch (error) {
+        console.error('Failed to load cached results:', error)
+      }
+    }
+
+    loadCachedResults()
+  }, [])
+
+  // Save results to cache when output changes
+  const saveResultsToCache = async (outputData: Output) => {
+    if (!githubUrl || !githubRepoInfo) return
+
+    try {
+      await fetch('/api/cache/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repoUrl: githubUrl,
+          repoId: `${githubRepoInfo.owner}/${githubRepoInfo.name}`,
+          repoInfo: githubRepoInfo,
+          output: {
+            technicalExplanation: outputData.technicalExplanation,
+            resumeBullets: outputData.resumeBullets,
+            interviewPitch: outputData.interviewPitch,
+          },
+        }),
+      })
+    } catch (error) {
+      console.error('Failed to cache results:', error)
+    }
+  }
 
   const validateInput = (): boolean => {
     if (!githubUrl.trim()) {
@@ -220,7 +264,10 @@ export default function Home() {
 
       const data = await response.json()
       setOutput(data)
-      
+
+      // Save results to cache for persistence
+      saveResultsToCache(data)
+
       // Update rate limit info (only show remaining, not technical details)
       if (data.metadata?.rateLimit) {
         setRateLimitInfo({
@@ -264,11 +311,20 @@ export default function Home() {
     }
   }
 
-  const clearAll = () => {
+  const clearAll = async () => {
     setGithubUrl('')
     setGithubRepoInfo(null)
     setOutput(null)
     setError(null)
+    setRefinedContent({})
+
+    // Clear cached results
+    try {
+      await fetch('/api/cache/results', { method: 'DELETE' })
+    } catch (error) {
+      console.error('Failed to clear cache:', error)
+    }
+
     toast.info('Form cleared')
   }
 
