@@ -66,7 +66,6 @@ const MAX_INPUT_CHARACTERS_WARNING = Math.floor(MAX_PROJECT_TOKENS * 0.75 / TOKE
 export default function Home() {
   const router = useRouter()
   const [githubUrl, setGithubUrl] = useState('')
-  const [startingInterview, setStartingInterview] = useState(false)
   const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'hiring-manager' | 'founder-product'>('engineer')
   const [tone, setTone] = useState<'confident' | 'concise' | 'conversational' | 'technical'>('confident')
   const [output, setOutput] = useState<Output | null>(null)
@@ -273,37 +272,20 @@ export default function Home() {
     toast.info('Form cleared')
   }
 
-  const startInterview = async () => {
+  const startInterview = () => {
     if (!githubUrl) {
       toast.error('Please enter a GitHub URL first')
       return
     }
 
-    setStartingInterview(true)
-    try {
-      const response = await fetch('/api/interview/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          repoUrl: githubUrl,
-          repoId: githubRepoInfo ? `${githubRepoInfo.owner}/${githubRepoInfo.name}` : githubUrl
-        })
-      })
-
-      const data = await response.json()
-
-      if (data.success && data.sessionId) {
-        toast.success('Starting Interview Mode...')
-        router.push(`/interview/${data.sessionId}`)
-      } else {
-        toast.error(data.error || 'Failed to start interview mode')
-      }
-    } catch (error) {
-      console.error('Failed to start interview:', error)
-      toast.error('Failed to start interview mode')
-    } finally {
-      setStartingInterview(false)
-    }
+    // Navigate immediately with query params - session will be created on the interview page
+    const repoId = githubRepoInfo ? `${githubRepoInfo.owner}/${githubRepoInfo.name}` : githubUrl
+    const params = new URLSearchParams({
+      repoUrl: githubUrl,
+      repoId: repoId,
+    })
+    toast.success('Starting Interview Mode...')
+    router.push(`/interview/new?${params.toString()}`)
   }
 
   const handleRefine = async (
@@ -1245,21 +1227,11 @@ export default function Home() {
                     </div>
                     <Button
                       onClick={startInterview}
-                      disabled={startingInterview}
                       className="shrink-0"
                       size="lg"
                     >
-                      {startingInterview ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Starting...
-                        </>
-                      ) : (
-                        <>
-                          <Target className="mr-2 h-5 w-5" />
-                          Enter Interview Mode
-                        </>
-                      )}
+                      <Target className="mr-2 h-5 w-5" />
+                      Enter Interview Mode
                     </Button>
                   </div>
                 </CardContent>
