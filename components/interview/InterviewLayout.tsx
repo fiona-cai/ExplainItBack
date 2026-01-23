@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -25,6 +25,8 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [codeSnippets, setCodeSnippets] = useState<CodeSnippet[]>([]);
   const [hintCount, setHintCount] = useState(0);
+  const autoQuestionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isRequestingQuestionRef = useRef(false);
 
   const fetchSession = useCallback(async () => {
     try {
@@ -191,8 +193,13 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
         await fetchSession();
 
         // Auto-request next question after a delay
-        setTimeout(() => {
+        // Clear any existing timeout first
+        if (autoQuestionTimeoutRef.current) {
+          clearTimeout(autoQuestionTimeoutRef.current);
+        }
+        autoQuestionTimeoutRef.current = setTimeout(() => {
           requestNewQuestion();
+          autoQuestionTimeoutRef.current = null;
         }, 2000);
       } else {
         toast.error(data.error || 'Failed to evaluate answer');
@@ -204,6 +211,19 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
   };
 
   const requestNewQuestion = async () => {
+    // Prevent concurrent question requests (race condition fix)
+    if (isRequestingQuestionRef.current) {
+      return;
+    }
+
+    // Cancel any pending auto-request when manual request is made
+    if (autoQuestionTimeoutRef.current) {
+      clearTimeout(autoQuestionTimeoutRef.current);
+      autoQuestionTimeoutRef.current = null;
+    }
+
+    isRequestingQuestionRef.current = true;
+
     try {
       const response = await fetch('/api/interview/question', {
         method: 'POST',
@@ -227,6 +247,8 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
     } catch (error) {
       console.error('Question request error:', error);
       toast.error('Failed to get new question');
+    } finally {
+      isRequestingQuestionRef.current = false;
     }
   };
 
