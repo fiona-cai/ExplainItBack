@@ -95,6 +95,7 @@ Provide a detailed analysis in JSON format:
   const result = await generateStructuredCompletion<AnalysisResult>(messages, {
     temperature: 0.3,
     maxTokens: 4096,
+    requiredFields: ['mainEntryPoints', 'patterns', 'librariesUsed', 'summary'],
   });
 
   // Build file contents map

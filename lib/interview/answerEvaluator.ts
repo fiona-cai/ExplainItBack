@@ -81,6 +81,7 @@ Evaluate the answer and respond in JSON format:
   const result = await generateStructuredCompletion<EvaluationResult>(messages, {
     temperature: 0.3,
     maxTokens: 1500,
+    requiredFields: ['score', 'isCorrect', 'feedback'],
   });
 
   return {

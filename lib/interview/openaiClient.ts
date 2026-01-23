@@ -36,11 +36,15 @@ export async function generateCompletion(
   return response.choices[0]?.message?.content || '';
 }
 
+export type Validator<T> = (data: unknown) => data is T;
+
 export async function generateStructuredCompletion<T>(
   messages: ChatCompletionMessage[],
   options?: {
     temperature?: number;
     maxTokens?: number;
+    validator?: Validator<T>;
+    requiredFields?: string[];
   }
 ): Promise<T> {
   const content = await generateCompletion(messages, {
@@ -49,9 +53,31 @@ export async function generateStructuredCompletion<T>(
   });
 
   try {
-    return JSON.parse(content) as T;
+    const parsed = JSON.parse(content);
+
+    // Validate required fields if specified
+    if (options?.requiredFields) {
+      const missingFields = options.requiredFields.filter(
+        field => parsed[field] === undefined || parsed[field] === null
+      );
+      if (missingFields.length > 0) {
+        console.error('AI response missing required fields:', missingFields, 'Response:', content);
+        throw new Error(`AI response missing required fields: ${missingFields.join(', ')}`);
+      }
+    }
+
+    // Run custom validator if provided
+    if (options?.validator && !options.validator(parsed)) {
+      console.error('AI response failed validation:', content);
+      throw new Error('AI response failed validation');
+    }
+
+    return parsed as T;
   } catch (error) {
-    console.error('Failed to parse JSON response:', content);
-    throw new Error('Failed to parse AI response as JSON');
+    if (error instanceof SyntaxError) {
+      console.error('Failed to parse JSON response:', content);
+      throw new Error('Failed to parse AI response as JSON');
+    }
+    throw error;
   }
 }

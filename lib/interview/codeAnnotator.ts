@@ -67,6 +67,7 @@ Only annotate lines that exist in the code (lines ${snippet.startLine}-${snippet
     const result = await generateStructuredCompletion<AnnotationResult>(messages, {
       temperature: 0.5,
       maxTokens: 1024,
+      requiredFields: ['annotations'],
     });
 
     // Validate and filter annotations

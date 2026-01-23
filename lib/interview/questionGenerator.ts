@@ -157,6 +157,7 @@ The question should be answerable by studying the provided code but require deep
   const generated = await generateStructuredCompletion<GeneratedQuestion>(messages, {
     temperature: 0.8,
     maxTokens: 2048,
+    requiredFields: ['text', 'relatedFiles', 'keyPoints', 'codeSnippets'],
   });
 
   // Extract actual code snippets from the analysis
