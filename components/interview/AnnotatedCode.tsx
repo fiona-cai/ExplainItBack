@@ -108,8 +108,8 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
                   onMouseEnter={() => setHoveredLine(lineNumber)}
                   onMouseLeave={() => setHoveredLine(null)}
                 >
-                  <td className="w-12 px-2 py-0.5 text-right text-muted-foreground select-none border-r border-border">
-                    {lineNumber}
+                  <td className="w-14 px-3 py-0.5 text-right text-muted-foreground/70 select-none border-r border-border bg-muted/30 sticky left-0">
+                    <span className="tabular-nums">{lineNumber}</span>
                     {hasAnnotation && (
                       <span className="ml-1 text-yellow-500">*</span>
                     )}
