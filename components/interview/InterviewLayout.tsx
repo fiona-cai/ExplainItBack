@@ -63,6 +63,19 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
 
     setIsProcessing(true);
 
+    // Immediately add user message to local state for instant feedback
+    const userMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user' as const,
+      content,
+      timestamp: Date.now(),
+      metadata: {},
+    };
+    setSession(prev => prev ? {
+      ...prev,
+      messages: [...prev.messages, userMessage],
+    } : prev);
+
     try {
       // Check if this is a directory selection
       if (session.status === 'selecting_dirs') {
