@@ -119,7 +119,6 @@ You can use multiple tokens to effectively increase your rate limit. The app wil
 ```bash
 GITHUB_TOKEN=ghp_token1
 
-# Multiple tokens (5,000/hour × number of tokens)
 GITHUB_TOKEN=ghp_token1
 GITHUB_TOKEN_1=ghp_token2
 GITHUB_TOKEN_2=ghp_token3
