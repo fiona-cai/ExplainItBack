@@ -428,7 +428,7 @@ export default function Home() {
                       </div>
                       <div className="flex items-center flex-1 gap-2 min-w-0">
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-foreground/90 text-base sm:text-lg whitespace-nowrap">
+                          <span className="text-foreground/90 text-sm sm:text-lg whitespace-nowrap">
                             https://github.com/
                           </span>
                         </div>
@@ -490,7 +490,7 @@ export default function Home() {
                                 setGithubRepoInfo(null)
                               }}
                               placeholder="username"
-                              className="glass-input text-lg h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0"
+                              className="glass-input text-base sm:text-lg h-12 sm:h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0"
                               style={{ 
                                 animationDelay: '0.2s',
                                 width: githubUsername ? `${Math.max(120, githubUsername.length * 9 + 32)}px` : '120px',
@@ -498,7 +498,7 @@ export default function Home() {
                               }}
                             />
                           </div>
-                          <span className="text-foreground/90 text-lg shrink-0">/</span>
+                          <span className="text-foreground/90 text-sm sm:text-lg shrink-0">/</span>
                           <Input
                             id="githubRepo"
                             type="text"
@@ -515,7 +515,7 @@ export default function Home() {
                               }
                             }}
                             placeholder="repo"
-                            className="glass-input text-lg h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0 flex-1 min-w-0"
+                            className="glass-input text-base sm:text-lg h-12 sm:h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0 flex-1 min-w-0"
                             style={{ animationDelay: '0.2s' }}
                           />
                         </div>
@@ -524,7 +524,7 @@ export default function Home() {
                         type="button"
                         onClick={handleFetchGithub}
                         disabled={fetchingGithub || (!githubUsername.trim() && !githubRepo.trim() && !githubUrl.trim())}
-                        className="shrink-0 h-14 px-6 text-base"
+                        className="shrink-0 h-12 sm:h-14 px-4 sm:px-6 text-sm sm:text-base"
                       >
                         {fetchingGithub ? (
                           <>
