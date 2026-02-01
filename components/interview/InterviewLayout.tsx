@@ -138,6 +138,9 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
       if (analyzeData.success) {
         toast.success('Analysis complete! Generating first question...');
 
+        // Refetch session so UI leaves "analyzing" and shows active + new messages
+        await fetchSession();
+
         // Request first question
         await requestNewQuestion();
       } else {
