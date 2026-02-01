@@ -81,11 +81,11 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
   };
 
   return (
-    <div className="relative font-mono text-sm">
-      <div className="flex items-center gap-2 px-4 py-2 bg-muted border-b border-border text-xs text-muted-foreground">
-        <span className="font-medium">{snippet.file}</span>
-        <span className="opacity-60">
-          Lines {snippet.startLine}-{snippet.endLine}
+    <div className="relative font-mono text-xs">
+      <div className="flex items-center gap-1.5 px-2 py-1 bg-muted border-b border-border text-xs text-muted-foreground">
+        <span className="font-medium truncate">{snippet.file}</span>
+        <span className="opacity-60 shrink-0">
+          {snippet.startLine}-{snippet.endLine}
         </span>
       </div>
 
@@ -108,14 +108,14 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
                   onMouseEnter={() => setHoveredLine(lineNumber)}
                   onMouseLeave={() => setHoveredLine(null)}
                 >
-                  <td className="w-12 px-2 py-0.5 text-right text-muted-foreground select-none border-r border-border">
+                  <td className="w-10 px-1.5 py-0.5 text-right text-muted-foreground select-none border-r border-border text-xs">
                     {lineNumber}
                     {hasAnnotation && (
-                      <span className="ml-1 text-yellow-500">*</span>
+                      <span className="ml-0.5 text-yellow-500">*</span>
                     )}
                   </td>
-                  <td className="px-4 py-0.5 relative">
-                    <pre className="whitespace-pre">
+                  <td className="px-2 py-0.5 relative">
+                    <pre className="whitespace-pre text-xs">
                       <code
                         dangerouslySetInnerHTML={{
                           __html: highlightCode(line || ' ', snippet.language),
@@ -127,16 +127,16 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
                     {hasAnnotation && isHovered && (
                       <div
                         className={cn(
-                          'absolute left-4 top-full z-50 mt-1 p-3 rounded-lg shadow-lg border max-w-md',
+                          'absolute left-2 top-full z-50 mt-1 p-2 rounded-lg shadow-lg border max-w-md',
                           getAnnotationTypeStyles(annotation.type)
                         )}
                       >
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="text-xs font-medium uppercase opacity-70">
                             {annotation.type.replace('-', ' ')}
                           </span>
                         </div>
-                        <p className="text-sm">{annotation.text}</p>
+                        <p className="text-xs">{annotation.text}</p>
                       </div>
                     )}
                   </td>
@@ -149,8 +149,8 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
 
       {/* Legend for annotation types */}
       {snippet.annotations.length > 0 && (
-        <div className="flex flex-wrap gap-3 px-4 py-2 border-t border-border text-xs">
-          <span className="text-muted-foreground">Hover over * for annotations:</span>
+        <div className="flex flex-wrap gap-2 px-2 py-1 border-t border-border text-xs">
+          <span className="text-muted-foreground text-xs">Hover * for details:</span>
           {['key-point', 'explanation', 'connection', 'warning'].map((type) => {
             const hasType = snippet.annotations.some((a) => a.type === type);
             if (!hasType) return null;
@@ -158,7 +158,7 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
               <span
                 key={type}
                 className={cn(
-                  'px-2 py-0.5 rounded border',
+                  'px-1.5 py-0.5 rounded border text-xs',
                   getAnnotationTypeStyles(type as Annotation['type'])
                 )}
               >
