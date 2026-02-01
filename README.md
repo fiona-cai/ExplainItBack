@@ -1,5 +1,4 @@
 # ExplainItBack
-> By Fiona Cai and Kaibo Huang
 
 A minimal web app that transforms raw project descriptions into:
 - Clear technical explanations (5-7 sentences)
@@ -132,3 +131,4 @@ GITHUB_TOKEN_2=ghp_token3
 - **With 1 Personal Access Token**: 5,000 requests/hour
 - **With N tokens**: 5,000 × N requests/hour (automatically rotated)
 - **With GitHub App**: 15,000 requests/hour (advanced setup, requires app installation)
+
