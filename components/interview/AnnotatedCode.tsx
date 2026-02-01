@@ -57,15 +57,31 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
   const getAnnotationTypeStyles = (type: Annotation['type']): string => {
     switch (type) {
       case 'key-point':
-        return 'bg-yellow-500/20 border-yellow-500';
+        return 'bg-yellow-500/75 border-yellow-500';
       case 'explanation':
-        return 'bg-blue-500/20 border-blue-500';
+        return 'bg-blue-500/75 border-blue-500';
       case 'connection':
-        return 'bg-purple-500/20 border-purple-500';
+        return 'bg-purple-500/75 border-purple-500';
       case 'warning':
-        return 'bg-red-500/20 border-red-500';
+        return 'bg-red-500/75 border-red-500';
       default:
         return 'bg-muted border-border';
+    }
+  };
+
+  /** Thin left border only – used on code lines so we don't cover the text */
+  const getAnnotationLineBorder = (type: Annotation['type']): string => {
+    switch (type) {
+      case 'key-point':
+        return 'border-l-2 border-l-yellow-500';
+      case 'explanation':
+        return 'border-l-2 border-l-blue-500';
+      case 'connection':
+        return 'border-l-2 border-l-purple-500';
+      case 'warning':
+        return 'border-l-2 border-l-red-500';
+      default:
+        return 'border-l-2 border-l-border';
     }
   };
 
@@ -101,10 +117,7 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
               return (
                 <tr
                   key={lineNumber}
-                  className={cn(
-                    'group hover:bg-muted/50 transition-colors',
-                    hasAnnotation && 'bg-muted/30'
-                  )}
+                  className="group hover:bg-muted/30 transition-colors"
                   onMouseEnter={() => setHoveredLine(lineNumber)}
                   onMouseLeave={() => setHoveredLine(null)}
                 >
@@ -114,7 +127,12 @@ export function AnnotatedCode({ snippet }: AnnotatedCodeProps) {
                       <span className="ml-0.5 text-yellow-500">*</span>
                     )}
                   </td>
-                  <td className="px-2 py-0.5 relative">
+                  <td
+                    className={cn(
+                      'px-2 py-0.5 relative',
+                      hasAnnotation && annotation && getAnnotationLineBorder(annotation.type)
+                    )}
+                  >
                     <pre className="whitespace-pre text-xs">
                       <code
                         dangerouslySetInnerHTML={{
