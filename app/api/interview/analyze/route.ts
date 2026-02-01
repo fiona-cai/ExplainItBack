@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getSession,
   setAnalysisCache,
+  updateSessionStatus,
   addMessage,
   createMessage,
 } from '@/lib/interview/sessionManager';
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalyzeRe
     const repo = await fetchRepository(session.repoUrl, directories);
 
     if (repo.files.length === 0) {
+      await updateSessionStatus(sessionId, 'selecting_dirs');
       return NextResponse.json(
         { success: false, error: 'No files found in the repository or selected directories' },
         { status: 400 }
@@ -78,6 +80,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalyzeRe
 
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to analyze repository';
+
+    // Revert status so user is not stuck on "analyzing" and can try again
+    try {
+      const body = (await request.clone().json()) as AnalyzeRequest;
+      if (body?.sessionId) {
+        await updateSessionStatus(body.sessionId, 'selecting_dirs');
+      }
+    } catch (revertError) {
+      console.error('Failed to revert session status:', revertError);
+    }
 
     return NextResponse.json(
       { success: false, error: errorMessage },
