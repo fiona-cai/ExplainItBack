@@ -1,4 +1,7 @@
 # ExplainItBack
+Turn your GitHub repo into resume-ready bullets, interview pitches, and AI-powered technical interview practice with deep-dive sessions.
+
+---
 
 A minimal web app that transforms raw project descriptions into:
 - Clear technical explanations (5-7 sentences)
