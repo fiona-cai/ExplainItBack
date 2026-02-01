@@ -100,26 +100,27 @@ class RedisClient {
     }
 
     if (!this.instance) {
-      // In development, default to in-memory unless Redis is explicitly requested
-      const forceRedis = process.env.FORCE_REDIS === 'true';
-      const useInMemoryFallback = process.env.NODE_ENV === 'development' && 
-                                   (process.env.USE_IN_MEMORY_STORE === 'true' || !forceRedis);
-      
-      if (useInMemoryFallback) {
+      // Use in-memory by default in all environments. Only use Redis when explicitly enabled.
+      const useRedis = process.env.USE_REDIS === 'true';
+      const useInMemoryDefault =
+        process.env.USE_IN_MEMORY_STORE === 'true' || !useRedis;
+
+      if (useInMemoryDefault) {
         if (!this.hasLoggedFallback) {
-          console.log('Using in-memory store for development. Set FORCE_REDIS=true to use Redis.');
+          console.log(
+            'Using in-memory store (no Redis). Set USE_REDIS=true and configure REDIS_* to use Redis.'
+          );
           this.hasLoggedFallback = true;
         }
         this.instance = new InMemoryStore();
         this.useInMemory = true;
-        // Store in global for persistence across hot reloads
         if (typeof global !== 'undefined') {
           global.__redisClientInstance = this.instance;
         }
         return this.instance;
       }
 
-      // Only create Redis instance if we're forcing it or in production
+      // Create Redis instance only when USE_REDIS=true
       try {
         const redisInstance = new Redis(getRedisUrl(), {
           maxRetriesPerRequest: 0,
@@ -130,27 +131,18 @@ class RedisClient {
           showFriendlyErrorStack: false,
         });
 
-        // Set up error handler that immediately switches to in-memory in development
+        // On Redis error, switch to in-memory in all environments so the app keeps working
         this.redisErrorHandler = (err: Error) => {
-          // Silently ignore errors if we've already switched to in-memory
-          if (this.useInMemory) {
-            return;
+          if (this.useInMemory) return;
+          if (!this.hasLoggedFallback) {
+            console.warn(
+              'Redis connection failed, using in-memory store. Ensure Redis is running to use Redis.'
+            );
+            this.hasLoggedFallback = true;
           }
-          
-          // In development, switch to in-memory immediately on first error
-          if (process.env.NODE_ENV === 'development') {
-            if (!this.hasLoggedFallback) {
-              console.warn('Redis connection failed, using in-memory store. Set FORCE_REDIS=true and ensure Redis is running to use Redis.');
-              this.hasLoggedFallback = true;
-            }
-            this.switchToInMemory();
-            // Remove all listeners to stop error spam
-            redisInstance.removeAllListeners();
-            redisInstance.disconnect();
-          } else {
-            // In production, log but don't switch
-            console.error('Redis connection error:', err);
-          }
+          this.switchToInMemory();
+          redisInstance.removeAllListeners();
+          redisInstance.disconnect();
         };
 
         redisInstance.on('error', this.redisErrorHandler);
@@ -167,20 +159,15 @@ class RedisClient {
           global.__redisClientInstance = this.instance;
         }
       } catch (error) {
-        // If Redis fails to initialize, fall back to in-memory in development
-        if (process.env.NODE_ENV === 'development') {
-          if (!this.hasLoggedFallback) {
-            console.warn('Redis initialization failed, using in-memory store');
-            this.hasLoggedFallback = true;
-          }
-          this.instance = new InMemoryStore();
-          this.useInMemory = true;
-          // Store in global for persistence across hot reloads
-          if (typeof global !== 'undefined') {
-            global.__redisClientInstance = this.instance;
-          }
-        } else {
-          throw error;
+        // If Redis fails to initialize, fall back to in-memory in all environments
+        if (!this.hasLoggedFallback) {
+          console.warn('Redis initialization failed, using in-memory store');
+          this.hasLoggedFallback = true;
+        }
+        this.instance = new InMemoryStore();
+        this.useInMemory = true;
+        if (typeof global !== 'undefined') {
+          global.__redisClientInstance = this.instance;
         }
       }
     }
@@ -214,33 +201,30 @@ class RedisClient {
       try {
         await Promise.race([connectPromise, timeoutPromise]);
       } catch (connectError) {
-        // If connection fails in development, fall back to in-memory
-        if (process.env.NODE_ENV === 'development') {
-          const errorMsg = (connectError as Error).message;
-          if (errorMsg !== 'Redis is already connecting/connected' && !this.useInMemory) {
-            if (!this.hasLoggedFallback) {
-              console.warn('Redis connection failed, using in-memory store. To use Redis, make sure it is running.');
-              this.hasLoggedFallback = true;
-            }
-            this.instance = new InMemoryStore();
-            this.useInMemory = true;
-            // Store in global for persistence across hot reloads
-            if (typeof global !== 'undefined') {
-              global.__redisClientInstance = this.instance;
-            }
-            // Disconnect the failed Redis instance
-            try {
-              await (redis as Redis).disconnect();
-            } catch {
-              // Ignore disconnect errors
-            }
-            return;
+        // If connection fails, fall back to in-memory in all environments
+        const errorMsg = (connectError as Error).message;
+        if (errorMsg !== 'Redis is already connecting/connected' && !this.useInMemory) {
+          if (!this.hasLoggedFallback) {
+            console.warn(
+              'Redis connection failed, using in-memory store. To use Redis, make sure it is running.'
+            );
+            this.hasLoggedFallback = true;
           }
+          this.instance = new InMemoryStore();
+          this.useInMemory = true;
+          if (typeof global !== 'undefined') {
+            global.__redisClientInstance = this.instance;
+          }
+          try {
+            await (redis as Redis).disconnect();
+          } catch {
+            // Ignore disconnect errors
+          }
+          return;
         }
-        // In production, throw the error
-        if (process.env.NODE_ENV !== 'development') {
-          throw connectError;
-        }
+        // Already connecting/connected - treat as success
+        if (errorMsg === 'Redis is already connecting/connected') return;
+        throw connectError;
       }
     } catch (error) {
       // In production, throw the error
@@ -272,11 +256,10 @@ class RedisClient {
       const result = await (redis as Redis).ping();
       return result === 'PONG';
     } catch {
-      // If ping fails in development, fall back to in-memory
-      if (process.env.NODE_ENV === 'development' && !this.useInMemory) {
+      // If ping fails, fall back to in-memory in all environments
+      if (!this.useInMemory) {
         this.instance = new InMemoryStore();
         this.useInMemory = true;
-        // Store in global for persistence across hot reloads
         if (typeof global !== 'undefined') {
           global.__redisClientInstance = this.instance;
         }
@@ -291,27 +274,23 @@ class RedisClient {
   }
 
   static switchToInMemory(): void {
-    if (!this.useInMemory && process.env.NODE_ENV === 'development') {
-      if (!this.hasLoggedFallback) {
-        console.warn('Switching to in-memory store due to Redis connection issues');
-        this.hasLoggedFallback = true;
-      }
-      // Disconnect and remove listeners from Redis instance if it exists
-      if (this.instance && !(this.instance instanceof InMemoryStore)) {
-        const redisInstance = this.instance as Redis;
-        redisInstance.removeAllListeners();
-        redisInstance.disconnect();
-      }
-      // Only create new instance if we don't already have one
-      if (!this.instance || !(this.instance instanceof InMemoryStore)) {
-        this.instance = new InMemoryStore();
-        // Store in global for persistence across hot reloads
-        if (typeof global !== 'undefined') {
-          global.__redisClientInstance = this.instance;
-        }
-      }
-      this.useInMemory = true;
+    if (this.useInMemory) return;
+    if (!this.hasLoggedFallback) {
+      console.warn('Switching to in-memory store due to Redis connection issues');
+      this.hasLoggedFallback = true;
     }
+    if (this.instance && !(this.instance instanceof InMemoryStore)) {
+      const redisInstance = this.instance as Redis;
+      redisInstance.removeAllListeners();
+      redisInstance.disconnect();
+    }
+    if (!this.instance || !(this.instance instanceof InMemoryStore)) {
+      this.instance = new InMemoryStore();
+      if (typeof global !== 'undefined') {
+        global.__redisClientInstance = this.instance;
+      }
+    }
+    this.useInMemory = true;
   }
 }
 
@@ -343,8 +322,8 @@ export const redis = {
     try {
       return await (instance as Redis).get(key);
     } catch (error) {
-      // If Redis operation fails in development, fall back to in-memory
-      if (process.env.NODE_ENV === 'development' && !RedisClient.isUsingInMemory()) {
+      // If Redis operation fails, fall back to in-memory in all environments
+      if (!RedisClient.isUsingInMemory()) {
         RedisClient.switchToInMemory();
         const inMemory = RedisClient.getInstance();
         return (inMemory as InMemoryStore).get(key);
@@ -369,8 +348,8 @@ export const redis = {
     try {
       return await (instance as Redis).setex(key, seconds, value);
     } catch (error) {
-      // If Redis operation fails in development, fall back to in-memory
-      if (process.env.NODE_ENV === 'development' && !RedisClient.isUsingInMemory()) {
+      // If Redis operation fails, fall back to in-memory in all environments
+      if (!RedisClient.isUsingInMemory()) {
         RedisClient.switchToInMemory();
         const inMemory = RedisClient.getInstance();
         return (inMemory as InMemoryStore).setex(key, seconds, value);
@@ -395,8 +374,8 @@ export const redis = {
     try {
       return await (instance as Redis).del(key);
     } catch (error) {
-      // If Redis operation fails in development, fall back to in-memory
-      if (process.env.NODE_ENV === 'development' && !RedisClient.isUsingInMemory()) {
+      // If Redis operation fails, fall back to in-memory in all environments
+      if (!RedisClient.isUsingInMemory()) {
         RedisClient.switchToInMemory();
         const inMemory = RedisClient.getInstance();
         return (inMemory as InMemoryStore).del(key);
@@ -421,8 +400,8 @@ export const redis = {
     try {
       return await (instance as Redis).ping();
     } catch (error) {
-      // If Redis operation fails in development, fall back to in-memory
-      if (process.env.NODE_ENV === 'development' && !RedisClient.isUsingInMemory()) {
+      // If Redis operation fails, fall back to in-memory in all environments
+      if (!RedisClient.isUsingInMemory()) {
         RedisClient.switchToInMemory();
         const inMemory = RedisClient.getInstance();
         return (inMemory as InMemoryStore).ping();

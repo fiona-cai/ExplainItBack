@@ -85,6 +85,7 @@ npm run dev
 ## Environment Variables
 
 - `OPENAI_API_KEY`: Your OpenAI API key (required)
+- **Redis (optional):** Session storage defaults to in-memory, so the app runs without Redis. To use Redis (e.g. for production or multi-instance), set `USE_REDIS=true` and configure `REDIS_HOST`, `REDIS_PORT`, and optionally `REDIS_PASSWORD`.
 - `GITHUB_TOKEN`: Optional GitHub personal access token for higher rate limits (public repos work without it)
 - `GITHUB_TOKEN_1`, `GITHUB_TOKEN_2`, etc.: Additional GitHub tokens for higher rate limits
 - `RATE_LIMIT_PER_USER`: Per-user rate limit (default: 10 requests/hour)
