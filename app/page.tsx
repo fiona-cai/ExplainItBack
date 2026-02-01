@@ -487,8 +487,8 @@ export default function Home() {
                               className="glass-input text-base sm:text-lg h-12 sm:h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0"
                               style={{ 
                                 animationDelay: '0.2s',
-                                width: githubUsername ? `${Math.max(120, githubUsername.length * 9 + 32)}px` : '120px',
-                                minWidth: '120px'
+                                width: githubUsername ? `${Math.max(110, githubUsername.length * 9 + 20)}px` : '110px',
+                                minWidth: '110px'
                               }}
                             />
                           </div>
