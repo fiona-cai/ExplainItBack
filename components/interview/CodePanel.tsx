@@ -50,23 +50,23 @@ export function CodePanel({ snippets, title = 'Related Code' }: CodePanelProps) 
   }
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <h2 className="font-semibold flex items-center gap-2">
-          <FileCode className="h-4 w-4" />
-          {title}
+    <div className="h-full flex flex-col min-h-0">
+      <div className="flex items-center justify-between p-2 border-b border-border shrink-0">
+        <h2 className="text-sm font-semibold flex items-center gap-1.5 truncate">
+          <FileCode className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{title}</span>
         </h2>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={expandAll}>
-            Expand All
+        <div className="flex gap-1 shrink-0">
+          <Button variant="ghost" size="sm" onClick={expandAll} className="h-6 text-xs px-2">
+            Expand
           </Button>
-          <Button variant="ghost" size="sm" onClick={collapseAll}>
-            Collapse All
+          <Button variant="ghost" size="sm" onClick={collapseAll} className="h-6 text-xs px-2">
+            Collapse
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 space-y-2 min-h-0">
         {snippets.map((snippet) => {
           const isExpanded = expandedSnippets.has(snippet.id);
 
@@ -74,24 +74,24 @@ export function CodePanel({ snippets, title = 'Related Code' }: CodePanelProps) 
             <Card key={snippet.id} className="overflow-hidden">
               <CardHeader
                 className={cn(
-                  'p-3 cursor-pointer hover:bg-muted/50 transition-colors',
+                  'p-2 cursor-pointer hover:bg-muted/50 transition-colors',
                   isExpanded && 'border-b border-border'
                 )}
                 onClick={() => toggleSnippet(snippet.id)}
               >
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="text-xs flex items-center gap-1.5">
                   {isExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-3 w-3 shrink-0" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3 w-3 shrink-0" />
                   )}
-                  <span className="font-mono">{snippet.file}</span>
-                  <span className="text-muted-foreground font-normal">
-                    ({snippet.endLine - snippet.startLine + 1} lines)
+                  <span className="font-mono truncate">{snippet.file}</span>
+                  <span className="text-muted-foreground font-normal text-xs shrink-0">
+                    ({snippet.endLine - snippet.startLine + 1})
                   </span>
                   {snippet.annotations.length > 0 && (
-                    <span className="text-xs bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded">
-                      {snippet.annotations.length} annotations
+                    <span className="text-xs bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded shrink-0">
+                      {snippet.annotations.length}
                     </span>
                   )}
                 </CardTitle>

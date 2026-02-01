@@ -284,18 +284,18 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
   const repoName = session.repoUrl.split('/').slice(-2).join('/');
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
-        <div className="flex items-center gap-3">
-          <Github className="h-5 w-5" />
-          <h1 className="font-semibold">Interview Mode</h1>
-          <span className="text-sm text-muted-foreground">-</span>
-          <span className="text-sm font-mono text-muted-foreground">
+      <header className="flex items-center justify-between px-3 py-2 border-b border-border bg-background shrink-0">
+        <div className="flex items-center gap-2">
+          <Github className="h-4 w-4" />
+          <h1 className="text-sm font-semibold">Interview Mode</h1>
+          <span className="text-xs text-muted-foreground">-</span>
+          <span className="text-xs font-mono text-muted-foreground truncate max-w-[200px]">
             {repoName}
           </span>
           {session.status === 'analyzing' && (
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <RefreshCw className="h-3 w-3 animate-spin" />
               Analyzing...
             </span>
@@ -303,20 +303,20 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            Questions: {session.questionsAsked.length}
+          <span className="text-xs text-muted-foreground">
+            Q: {session.questionsAsked.length}
           </span>
-          <Button variant="destructive" size="sm" onClick={endSession}>
-            <LogOut className="h-4 w-4 mr-2" />
-            End Session
+          <Button variant="destructive" size="sm" onClick={endSession} className="h-7 text-xs px-2">
+            <LogOut className="h-3 w-3 mr-1" />
+            End
           </Button>
         </div>
       </header>
 
       {/* Split screen layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left side - Chat */}
-        <div className="w-1/2 border-r border-border">
+        <div className="w-1/2 border-r border-border flex flex-col min-w-0">
           <InterviewChat
             messages={session.messages}
             onSendMessage={handleSendMessage}
@@ -337,7 +337,7 @@ export function InterviewLayout({ sessionId }: InterviewLayoutProps) {
         </div>
 
         {/* Right side - Code */}
-        <div className="w-1/2 overflow-hidden">
+        <div className="w-1/2 flex flex-col min-w-0">
           <CodePanel
             snippets={codeSnippets}
             title={

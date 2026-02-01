@@ -32,17 +32,17 @@ export function InterviewChat({
   }, [messages]);
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background min-h-0">
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-3 min-h-0">
         {messages.map((message) => (
           <ChatMessage key={message.id} message={message} />
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 text-muted-foreground p-4">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Thinking...</span>
+          <div className="flex items-center gap-2 text-muted-foreground p-2">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span className="text-xs">Thinking...</span>
           </div>
         )}
 

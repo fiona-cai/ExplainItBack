@@ -48,7 +48,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex gap-2 items-end p-4 border-t border-border bg-background">
+    <div className="flex gap-2 items-end p-2 border-t border-border bg-background shrink-0">
       {showHintButton && onRequestHint && (
         <Button
           variant="outline"
@@ -68,7 +68,7 @@ export function ChatInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
-        className="min-h-[44px] max-h-[200px] resize-none"
+        className="min-h-[36px] max-h-[120px] resize-none text-sm"
         rows={1}
       />
       <Button

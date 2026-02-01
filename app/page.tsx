@@ -17,7 +17,6 @@ import {
   Github, 
   FileText,
   AlertCircle, 
-  X,
   Target,
   MessageSquare,
   Edit,
@@ -66,6 +65,8 @@ const MAX_INPUT_CHARACTERS_WARNING = Math.floor(MAX_PROJECT_TOKENS * 0.75 / TOKE
 export default function Home() {
   const router = useRouter()
   const [githubUrl, setGithubUrl] = useState('')
+  const [githubUsername, setGithubUsername] = useState('')
+  const [githubRepo, setGithubRepo] = useState('')
   const [startingInterview, setStartingInterview] = useState(false)
   const [audience, setAudience] = useState<'recruiter' | 'engineer' | 'hiring-manager' | 'founder-product'>('engineer')
   const [tone, setTone] = useState<'confident' | 'concise' | 'conversational' | 'technical'>('confident')
@@ -85,8 +86,39 @@ export default function Home() {
   const [githubRepoInfo, setGithubRepoInfo] = useState<{ name: string; description: string; stars: number; owner: string } | null>(null)
   const [fetchingGithub, setFetchingGithub] = useState(false)
 
+  const getGithubUrl = (): string => {
+    if (githubUsername.trim() && githubRepo.trim()) {
+      return `https://github.com/${githubUsername.trim()}/${githubRepo.trim()}`
+    }
+    return githubUrl
+  }
+
+  const normalizeGithubUrl = (input: string): string => {
+    const trimmed = input.trim()
+    if (!trimmed) return ''
+    
+    // If it's already a full URL, return as is
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed
+    }
+    
+    // If it starts with github.com, add https://
+    if (trimmed.startsWith('github.com/')) {
+      return `https://${trimmed}`
+    }
+    
+    // If it's just a repo path (username/repo), add the full URL prefix
+    if (trimmed.includes('/') && !trimmed.includes('://')) {
+      return `https://github.com/${trimmed}`
+    }
+    
+    // Otherwise, assume it's a repo path and add the prefix
+    return `https://github.com/${trimmed}`
+  }
+
   const validateInput = (): boolean => {
-    if (!githubUrl.trim()) {
+    const githubUrlValue = getGithubUrl()
+    if (!githubUrlValue || (!githubUsername.trim() && !githubRepo.trim() && !githubUrl.trim())) {
       setError('Please enter a GitHub repository URL')
       toast.error('GitHub URL is required')
       return false
@@ -97,8 +129,9 @@ export default function Home() {
       return false
     }
     try {
-      const url = new URL(githubUrl)
-      if (!url.hostname.includes('github.com')) {
+      const normalizedUrl = normalizeGithubUrl(githubUrlValue)
+      const urlObj = new URL(normalizedUrl)
+      if (!urlObj.hostname.includes('github.com')) {
         setError('Please enter a valid GitHub repository URL')
         toast.error('Invalid GitHub URL')
         return false
@@ -112,22 +145,10 @@ export default function Home() {
   }
 
   const handleFetchGithub = async () => {
-    if (!githubUrl.trim()) {
+    const githubUrlValue = getGithubUrl()
+    if (!githubUrlValue || (!githubUsername.trim() && !githubRepo.trim() && !githubUrl.trim())) {
       setError('Please enter a GitHub repository URL')
       toast.error('GitHub URL is required')
-      return
-    }
-
-    try {
-      const url = new URL(githubUrl)
-      if (!url.hostname.includes('github.com')) {
-        setError('Please enter a valid GitHub repository URL')
-        toast.error('Invalid GitHub URL')
-        return
-      }
-    } catch {
-      setError('Please enter a valid URL')
-      toast.error('Invalid URL format')
       return
     }
 
@@ -135,11 +156,19 @@ export default function Home() {
     setError(null)
 
     try {
+      // Normalize the URL
+      const normalizedUrl = normalizeGithubUrl(githubUrlValue)
+      
+      // Validate the URL
+      const urlObj = new URL(normalizedUrl)
+      if (!urlObj.hostname.includes('github.com')) {
+        throw new Error('Please enter a valid GitHub repository URL')
+      }
+
       // Parse the GitHub URL
-      const urlObj = new URL(githubUrl)
       const parts = urlObj.pathname.split('/').filter(Boolean)
       if (parts.length < 2) {
-        throw new Error('Invalid GitHub URL format')
+        throw new Error('Invalid GitHub URL format. Please use format: username/repo')
       }
       const owner = parts[0]
       const repo = parts[1].replace(/\.git$/, '')
@@ -192,13 +221,15 @@ export default function Home() {
     setProgress({ message: 'Fetching repository information and analyzing files...' })
 
     try {
+      const githubUrlValue = getGithubUrl()
+      const normalizedUrl = normalizeGithubUrl(githubUrlValue)
       const response = await fetch('/api/explain', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          projectDescription: githubUrl,
+          projectDescription: normalizedUrl,
           audience,
           tone,
           inputMethod: 'github',
@@ -265,28 +296,22 @@ export default function Home() {
     }
   }
 
-  const clearAll = () => {
-    setGithubUrl('')
-    setGithubRepoInfo(null)
-    setOutput(null)
-    setError(null)
-    toast.info('Form cleared')
-  }
-
   const startInterview = async () => {
-    if (!githubUrl) {
+    const githubUrlValue = getGithubUrl()
+    if (!githubUrlValue || (!githubUsername.trim() && !githubRepo.trim() && !githubUrl.trim())) {
       toast.error('Please enter a GitHub URL first')
       return
     }
 
     setStartingInterview(true)
     try {
+      const normalizedUrl = normalizeGithubUrl(githubUrlValue)
       const response = await fetch('/api/interview/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          repoUrl: githubUrl,
-          repoId: githubRepoInfo ? `${githubRepoInfo.owner}/${githubRepoInfo.name}` : githubUrl
+          repoUrl: normalizedUrl,
+          repoId: githubRepoInfo ? `${githubRepoInfo.owner}/${githubRepoInfo.name}` : normalizedUrl
         })
       })
 
@@ -365,7 +390,7 @@ export default function Home() {
 
   return (
     <>
-      <div className="min-h-screen bg-background relative">
+      <div className="h-screen bg-background relative overflow-hidden">
         {/* Background */}
         <div className="fixed inset-0 z-0 bg-background">
           <ColorBends
@@ -382,148 +407,147 @@ export default function Home() {
           />
         </div>
         {/* Content */}
-        <div className="relative z-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="relative z-10 h-full overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-16 pb-6 sm:pb-8">
           {/* Header */}
-          <div className="text-center mb-10 sm:mb-16 space-y-5 fade-in-up overflow-visible">
+          <div className="text-center mb-8 sm:mb-10 fade-in-up overflow-visible">
             <h1 className="text-5xl sm:text-6xl font-bold text-foreground raleway fade-in-up leading-tight tracking-tight">
               ExplainIt<span className="italic font-light">Back.</span>
             </h1>
-            <div className="space-y-3">
-              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto fade-in-up font-mono" style={{ animationDelay: '0.1s' }}>
-                git explain &lt;repository_url&gt;
-              </p>
-            </div>
           </div>
 
-          {/* Summary */}
-          <Card className="glass-card section-spacing fade-in-up border-0" style={{ animationDelay: '0.15s' }}>
-            <CardContent className="pt-6">
-              <div className="card-content-spacing">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground mb-1">What you'll get</h2>
-                  <p className="text-sm text-muted-foreground">Three tailored outputs for your project</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <Award className="h-5 w-5 text-foreground" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">Resume Bullets</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Action-oriented bullet points highlighting technologies and impact, ready for your resume and LinkedIn.
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <MessageSquare className="h-5 w-5 text-foreground" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">Interview Pitch</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      A concise explanation perfect for "Tell me about a project" questions, tailored to your audience.
-                    </p>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <FileText className="h-5 w-5 text-foreground" />
-                      </div>
-                      <h3 className="font-semibold text-foreground">Technical Explanation</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      Deep dive into architecture, tools, and implementation details for technical discussions.
-                    </p>
-                  </div>
-                </div>
-                <div className="divider-subtle pt-4">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    <span className="font-semibold text-foreground">How it works:</span> We analyze your repository's code, structure, and documentation to generate professional explanations tailored to your chosen audience (Recruiter, Engineer, Hiring Manager, or Founder/Product) and tone.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Input Form */}
-          <form onSubmit={handleSubmit} className="space-y-6 mb-6">
-            <Card className="glass-card card-lift fade-in-up border-0 section-spacing" style={{ animationDelay: '0.1s' }}>
-              <CardHeader className="glass-card-header">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl font-semibold">GitHub Repository</CardTitle>
-                    <CardDescription className="mt-1.5 text-muted-foreground">
-                      Enter your repository URL
-                    </CardDescription>
-                  </div>
-                  {(githubUrl || output) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearAll}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Clear
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="card-content-spacing">
-                  <div className="space-y-3">
-                    <label htmlFor="githubUrl" className="text-sm font-semibold flex items-center gap-2 text-foreground">
-                      <Github className="h-4 w-4" />
-                      GitHub URL
-                    </label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="githubUrl"
-                        type="url"
-                        value={githubUrl}
-                        onChange={(e) => {
-                          setGithubUrl(e.target.value)
-                          setGithubRepoInfo(null)
-                        }}
-                        placeholder="https://github.com/username/repo"
-                        className="glass-input text-base fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 flex-1 border-0"
-                        style={{ animationDelay: '0.2s' }}
-                        required
-                      />
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 mb-6 sm:mb-8">
+            <Card className="glass-card fade-in-up border-0 mb-4 sm:mb-5" style={{ animationDelay: '0.1s' }}>
+              <CardContent className="pt-6 pb-6 px-6">
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex gap-3 flex-1">
+                      <div className="flex items-center justify-center">
+                        <Github className="h-6 w-6 text-foreground shrink-0" />
+                      </div>
+                      <div className="flex items-center flex-1 gap-2 min-w-0">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-foreground/90 text-sm sm:text-lg whitespace-nowrap">
+                            https://github.com/
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <div className="relative inline-block">
+                            <Input
+                              id="githubUsername"
+                              type="text"
+                              value={githubUsername}
+                              onChange={(e) => {
+                                setGithubUsername(e.target.value)
+                                setGithubRepoInfo(null)
+                              }}
+                              onPaste={(e) => {
+                                e.preventDefault()
+                                const pastedText = e.clipboardData.getData('text')
+                                
+                                // If it's a full GitHub URL, extract username and repo
+                                if (pastedText.includes('github.com/')) {
+                                  try {
+                                    const url = new URL(pastedText.startsWith('http') ? pastedText : `https://${pastedText}`)
+                                    if (url.hostname.includes('github.com')) {
+                                      const parts = url.pathname.split('/').filter(Boolean)
+                                      if (parts.length >= 2) {
+                                        setGithubUsername(parts[0])
+                                        setGithubRepo(parts[1].replace(/\.git$/, ''))
+                                        setGithubUrl('')
+                                        setGithubRepoInfo(null)
+                                        return
+                                      }
+                                    }
+                                  } catch {
+                                    // If URL parsing fails, try to extract manually
+                                    const match = pastedText.match(/github\.com\/([^\/\s]+)\/([^\/\s]+)/)
+                                    if (match && match[1] && match[2]) {
+                                      setGithubUsername(match[1])
+                                      setGithubRepo(match[2].replace(/\.git$/, ''))
+                                      setGithubUrl('')
+                                      setGithubRepoInfo(null)
+                                      return
+                                    }
+                                  }
+                                }
+                                
+                                // If it contains a slash, try to split it
+                                if (pastedText.includes('/')) {
+                                  const parts = pastedText.split('/').filter(Boolean)
+                                  if (parts.length >= 2) {
+                                    setGithubUsername(parts[0])
+                                    setGithubRepo(parts[1].replace(/\.git$/, ''))
+                                    setGithubUrl('')
+                                    setGithubRepoInfo(null)
+                                    return
+                                  }
+                                }
+                                
+                                // Otherwise, just paste as username
+                                setGithubUsername(pastedText)
+                                setGithubRepoInfo(null)
+                              }}
+                              placeholder="username"
+                              className="glass-input text-base sm:text-lg h-12 sm:h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0"
+                              style={{ 
+                                animationDelay: '0.2s',
+                                width: githubUsername ? `${Math.max(120, githubUsername.length * 9 + 32)}px` : '120px',
+                                minWidth: '120px'
+                              }}
+                            />
+                          </div>
+                          <span className="text-foreground/90 text-sm sm:text-lg shrink-0">/</span>
+                          <Input
+                            id="githubRepo"
+                            type="text"
+                            value={githubRepo}
+                            onChange={(e) => {
+                              setGithubRepo(e.target.value)
+                              setGithubRepoInfo(null)
+                            }}
+                            onKeyDown={(e) => {
+                              // If user presses Enter in repo field and both fields are filled, trigger fetch
+                              if (e.key === 'Enter' && githubUsername.trim() && githubRepo.trim()) {
+                                e.preventDefault()
+                                handleFetchGithub()
+                              }
+                            }}
+                            placeholder="repo"
+                            className="glass-input text-base sm:text-lg h-12 sm:h-14 fade-in-up transition-all focus:ring-2 focus:ring-foreground/30 border-0 flex-1 min-w-0"
+                            style={{ animationDelay: '0.2s' }}
+                          />
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         onClick={handleFetchGithub}
-                        disabled={fetchingGithub || !githubUrl.trim()}
-                        className="shrink-0"
+                        disabled={fetchingGithub || (!githubUsername.trim() && !githubRepo.trim() && !githubUrl.trim())}
+                        className="shrink-0 h-12 sm:h-14 px-4 sm:px-6 text-sm sm:text-base"
                       >
                         {fetchingGithub ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             Fetching...
                           </>
                         ) : (
                           <>
-                            <Github className="mr-2 h-4 w-4" />
+                            <Github className="mr-2 h-5 w-5" />
                             Fetch
                           </>
                         )}
                       </Button>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Paste GitHub URL and click Fetch
-                    </p>
                   </div>
 
                   {githubRepoInfo && (
-                    <div className="p-4 glass rounded-lg fade-in-up border-0 transition-all hover:border-foreground/15">
+                    <div className="p-4 glass rounded-lg fade-in-up border-0 transition-all mt-4">
                       <div className="flex items-start gap-3">
                         <Check className="h-5 w-5 text-foreground mt-0.5 shrink-0" />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1.5">
                           <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-foreground">
+                            <h4 className="text-base font-semibold text-foreground">
                               {githubRepoInfo.owner}/{githubRepoInfo.name}
                             </h4>
                             {githubRepoInfo.stars > 0 && (
@@ -533,10 +557,10 @@ export default function Home() {
                               </span>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-muted-foreground line-clamp-2">
                             {githubRepoInfo.description}
                           </p>
-                          <p className="text-xs text-foreground">
+                          <p className="text-sm text-foreground">
                             Repository fetched successfully!
                           </p>
                         </div>
@@ -549,22 +573,22 @@ export default function Home() {
 
             {/* Configure Output */}
             {githubRepoInfo && (
-            <Card className="glass-card card-lift fade-in-up border-0 section-spacing" style={{ animationDelay: '0.2s' }}>
-              <CardHeader className="glass-card-header">
+            <Card className="glass-card fade-in-up border-0 mb-4 sm:mb-5" style={{ animationDelay: '0.2s' }}>
+              <CardHeader className="glass-card-header pb-4 px-6 pt-6">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-foreground/10 border border-foreground/20 text-foreground font-semibold text-sm">
+                  <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-foreground/10 border border-foreground/20 text-foreground font-semibold text-xs">
                     2
                   </div>
                   <div>
-                    <CardTitle className="text-xl font-semibold">Configure Output</CardTitle>
-                    <CardDescription className="mt-1.5 text-muted-foreground">
+                    <CardTitle className="text-lg font-semibold">Configure Output</CardTitle>
+                    <CardDescription className="mt-1 text-xs text-muted-foreground">
                       Set audience and tone
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <CardContent className="pt-4 pb-6 px-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                     <div className="space-y-3">
                       <div>
                         <label htmlFor="audience" className="text-sm font-semibold flex items-center gap-2 mb-2 text-foreground">
@@ -652,7 +676,7 @@ export default function Home() {
                   <Button 
                     type="submit" 
                     disabled={loading} 
-                    className="glass-button-primary w-full h-12 text-base transition-all mt-8 border-0" 
+                    className="glass-button-primary w-full h-12 text-base transition-all mt-6 border-0" 
                     size="lg"
                   >
                     {loading ? (
@@ -672,29 +696,82 @@ export default function Home() {
             )}
           </form>
 
+          {/* Summary */}
+          <Card className="glass-card mb-6 sm:mb-8 fade-in-up border-0" style={{ animationDelay: '0.15s' }}>
+            <CardContent className="pt-6 pb-6 px-6">
+              <div className="space-y-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground mb-1">What you'll get</h2>
+                  <p className="text-xs text-muted-foreground">Three tailored outputs for your project</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <Award className="h-4 w-4 text-foreground" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-foreground">Resume Bullets</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-7">
+                      Action-oriented bullet points highlighting technologies and impact, ready for your resume and LinkedIn.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <MessageSquare className="h-4 w-4 text-foreground" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-foreground">Interview Pitch</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-7">
+                      A concise explanation perfect for "Tell me about a project" questions, tailored to your audience.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <FileText className="h-4 w-4 text-foreground" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-foreground">Technical Explanation</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed pl-7">
+                      Deep dive into architecture, tools, and implementation details for technical discussions.
+                    </p>
+                  </div>
+                </div>
+                <div className="border-t border-foreground/8 pt-4 mt-4">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-foreground">How it works:</span> We analyze your repository's code, structure, and documentation to generate professional explanations tailored to your chosen audience (Recruiter, Engineer, Hiring Manager, or Founder/Product) and tone.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+
           {/* Error Alert */}
           {error && (
             <Alert variant="destructive" className="mb-6 fade-in-up border-0">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-destructive">{error}</AlertDescription>
+              <AlertCircle className="h-3 w-3" />
+              <AlertDescription className="text-xs text-destructive">{error}</AlertDescription>
             </Alert>
           )}
 
           {/* Loading State with Blurred Preview */}
           {loading && (
-            <div className="mt-12 space-y-6 fade-in-up">
-              <div className="relative mb-6 fade-in-up" style={{ animationDelay: '0.1s' }}>
+            <div className="mt-8 space-y-4 fade-in-up max-h-[calc(100vh-400px)] overflow-y-auto">
+              <div className="relative mb-4 fade-in-up" style={{ animationDelay: '0.1s' }}>
                 <div className="text-center mb-2">
-                  <h2 className="text-2xl font-bold text-foreground gradient-text">Your Results</h2>
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground gradient-text">Your Results</h2>
                 </div>
                 <div className="absolute top-0 right-0">
                   <div className="cool-spinner">
                     <div className="cool-spinner-inner"></div>
                   </div>
                 </div>
-                <p className="text-center text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
+                <p className="text-center text-xs text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
                 {progress?.filesFetched !== undefined && (
-                  <p className="text-center text-xs text-muted-foreground mt-2">
+                  <p className="text-center text-xs text-muted-foreground mt-1">
                     Fetched {progress.filesFetched} file{progress.filesFetched !== 1 ? 's' : ''}
                     {progress.tokens !== undefined && (
                       <span className="ml-2">(~{progress.tokens.toLocaleString()} tokens)</span>
@@ -704,7 +781,7 @@ export default function Home() {
               </div>
 
               {/* Blurred Resume Bullets Preview */}
-              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.2s' }}>
+              <Card className="glass-card fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.2s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -739,7 +816,7 @@ export default function Home() {
               </Card>
 
               {/* Blurred Interview Pitch Preview */}
-              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.3s' }}>
+              <Card className="glass-card fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.3s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -767,7 +844,7 @@ export default function Home() {
               </Card>
 
               {/* Blurred Technical Explanation Preview */}
-              <Card className="glass-card card-lift fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.4s' }}>
+              <Card className="glass-card fade-in-up blur-sm pointer-events-none border-0" style={{ animationDelay: '0.4s' }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -816,10 +893,10 @@ export default function Home() {
 
           {/* Output Cards - Reordered by value */}
           {output && (
-            <div className="space-y-6 fade-in-up mt-12" style={{ animationDelay: '0.1s' }}>
-              <div className="relative mb-6 fade-in-up" style={{ animationDelay: '0.2s' }}>
-                <div className="text-center mb-2">
-                  <h2 className="text-2xl font-bold text-foreground gradient-text">Your Results</h2>
+            <div className="space-y-4 fade-in-up mt-8 max-h-[calc(100vh-250px)] overflow-y-auto" style={{ animationDelay: '0.1s' }}>
+              <div className="relative mb-4 fade-in-up sticky top-0 bg-background/80 backdrop-blur-sm z-10 pb-2" style={{ animationDelay: '0.2s' }}>
+                <div className="text-center mb-1">
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground gradient-text">Your Results</h2>
                 </div>
                 <Button
                   variant="outline"
@@ -837,40 +914,40 @@ export default function Home() {
                     ].join('\n')
                     copyToClipboard(allText, 'all')
                   }}
-                  className="absolute top-0 right-0 shrink-0 transition-all"
+                  className="absolute top-0 right-0 shrink-0 transition-all text-xs h-7"
                 >
                   {copied === 'all' ? (
                     <>
-                      <Check className="mr-2 h-4 w-4" />
-                      Copied All
+                      <Check className="mr-1 h-3 w-3" />
+                      Copied
                     </>
                   ) : (
                     <>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Copy All Results
+                      <Copy className="mr-1 h-3 w-3" />
+                      Copy All
                     </>
                   )}
                 </Button>
-                <p className="text-center text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
+                <p className="text-center text-xs text-muted-foreground">Ready to use in your resume, interviews, and applications</p>
               </div>
 
               {/* 1. Resume Bullets - Most actionable, shown first */}
-              <Card className="glass-card card-lift fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
-                <CardHeader>
+              <Card className="glass-card fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <Award className="h-5 w-5 text-foreground" />
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <Award className="h-4 w-4 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl font-semibold">Resume Bullets</CardTitle>
-                        <CardDescription className="mt-0.5">
+                        <CardTitle className="text-base font-semibold">Resume Bullets</CardTitle>
+                        <CardDescription className="mt-0 text-xs">
                           For resumes and applications
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -879,12 +956,12 @@ export default function Home() {
                             handleRefine(content, 'resume-bullets', 'make-concise')
                           }}
                           disabled={refining?.type === 'resume-bullets'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'resume-bullets' && refining.action === 'make-concise' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Make concise'
+                            'Concise'
                           )}
                         </Button>
                         <Button
@@ -895,12 +972,12 @@ export default function Home() {
                             handleRefine(content, 'resume-bullets', 'add-metrics')
                           }}
                           disabled={refining?.type === 'resume-bullets'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'resume-bullets' && refining.action === 'add-metrics' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Add metrics'
+                            'Metrics'
                           )}
                         </Button>
                         <Select
@@ -910,12 +987,12 @@ export default function Home() {
                             handleRefine(content, 'resume-bullets', value)
                           }}
                         >
-                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'resume-bullets'}>
-                            <SelectValue placeholder="More...">
+                          <SelectTrigger className="w-[70px] h-6 text-xs px-2" disabled={refining?.type === 'resume-bullets'}>
+                            <SelectValue placeholder="More">
                               {refining?.type === 'resume-bullets' ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
-                                'More...'
+                                'More'
                               )}
                             </SelectValue>
                           </SelectTrigger>
@@ -934,28 +1011,22 @@ export default function Home() {
                           const bullets = getDisplayContent('resume-bullets', output.resumeBullets) as string[]
                           copyToClipboard(bullets.map(b => '• ' + b).join('\n'), 'resume')
                         }}
-                        className="shrink-0"
+                        className="shrink-0 h-6 w-6 p-0"
                       >
                         {copied === 'resume' ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Copied
-                          </>
+                          <Check className="h-3 w-3" />
                         ) : (
-                          <>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </>
+                          <Copy className="h-3 w-3" />
                         )}
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                <CardContent className="fade-in-up pt-3" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['resume-bullets'] && (
-                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
-                      <span className="text-sm text-foreground flex items-center gap-2">
-                        <Check className="h-4 w-4" />
+                    <div className="mb-2 p-1.5 glass rounded-md flex items-center justify-between border-0">
+                      <span className="text-xs text-foreground flex items-center gap-1.5">
+                        <Check className="h-3 w-3" />
                         Refined version
                       </span>
                       <Button
@@ -968,37 +1039,37 @@ export default function Home() {
                           })
                           toast.info('Reverted to original')
                         }}
-                        className="h-7 text-xs"
+                        className="h-6 text-xs px-2"
                       >
                         Revert
                       </Button>
                     </div>
                   )}
-                  <ul className="text-foreground leading-relaxed text-base font-medium list-disc pl-5 space-y-3">
+                  <ul className="text-foreground leading-relaxed text-sm font-medium list-disc pl-4 space-y-1.5">
                     {(getDisplayContent('resume-bullets', output.resumeBullets) as string[]).map((bullet, i) => (
-                      <li key={i} className="pl-2">{bullet}</li>
+                      <li key={i} className="pl-1 text-xs sm:text-sm">{bullet}</li>
                     ))}
                   </ul>
                 </CardContent>
               </Card>
 
               {/* 2. Interview Pitch - Second most actionable */}
-              <Card className="glass-card transition-shadow card-lift fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
-                <CardHeader>
+              <Card className="glass-card transition-shadow fade-in-up border-0" style={{ animationDelay: '0.3s' }}>
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <MessageSquare className="h-5 w-5 text-foreground" />
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <MessageSquare className="h-4 w-4 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl font-semibold">Interview Pitch</CardTitle>
-                        <CardDescription className="mt-0.5">
+                        <CardTitle className="text-base font-semibold">Interview Pitch</CardTitle>
+                        <CardDescription className="mt-0 text-xs">
                           Ideal for "Tell me about a project" questions
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1006,12 +1077,12 @@ export default function Home() {
                             handleRefine(output.interviewPitch, 'interview-pitch', 'make-concise')
                           }}
                           disabled={refining?.type === 'interview-pitch'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'interview-pitch' && refining.action === 'make-concise' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Make concise'
+                            'Concise'
                           )}
                         </Button>
                         <Button
@@ -1021,12 +1092,12 @@ export default function Home() {
                             handleRefine(output.interviewPitch, 'interview-pitch', 'add-metrics')
                           }}
                           disabled={refining?.type === 'interview-pitch'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'interview-pitch' && refining.action === 'add-metrics' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Add metrics'
+                            'Metrics'
                           )}
                         </Button>
                         <Select
@@ -1035,12 +1106,12 @@ export default function Home() {
                             handleRefine(output.interviewPitch, 'interview-pitch', value)
                           }}
                         >
-                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'interview-pitch'}>
-                            <SelectValue placeholder="More...">
+                          <SelectTrigger className="w-[70px] h-6 text-xs px-2" disabled={refining?.type === 'interview-pitch'}>
+                            <SelectValue placeholder="More">
                               {refining?.type === 'interview-pitch' ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
-                                'More...'
+                                'More'
                               )}
                             </SelectValue>
                           </SelectTrigger>
@@ -1059,28 +1130,22 @@ export default function Home() {
                           const content = getDisplayContent('interview-pitch', output.interviewPitch) as string
                           copyToClipboard(content, 'pitch')
                         }}
-                        className="shrink-0"
+                        className="shrink-0 h-6 w-6 p-0"
                       >
                         {copied === 'pitch' ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Copied
-                          </>
+                          <Check className="h-3 w-3" />
                         ) : (
-                          <>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </>
+                          <Copy className="h-3 w-3" />
                         )}
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                <CardContent className="fade-in-up pt-3" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['interview-pitch'] && (
-                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
-                      <span className="text-sm text-foreground flex items-center gap-2">
-                        <Check className="h-4 w-4" />
+                    <div className="mb-2 p-1.5 glass rounded-md flex items-center justify-between border-0">
+                      <span className="text-xs text-foreground flex items-center gap-1.5">
+                        <Check className="h-3 w-3" />
                         Refined version
                       </span>
                       <Button
@@ -1093,35 +1158,35 @@ export default function Home() {
                           })
                           toast.info('Reverted to original')
                         }}
-                        className="h-7 text-xs"
+                        className="h-6 text-xs px-2"
                       >
                         Revert
                       </Button>
                     </div>
                   )}
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm max-h-32 overflow-y-auto">
                     {getDisplayContent('interview-pitch', output.interviewPitch) as string}
                   </p>
                 </CardContent>
               </Card>
 
               {/* 3. Technical Explanation - Reference material, shown last */}
-              <Card className="glass-card card-lift fade-in-up border-0" style={{ animationDelay: '0.5s' }}>
-                <CardHeader>
+              <Card className="glass-card fade-in-up border-0" style={{ animationDelay: '0.5s' }}>
+                <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/5 border border-foreground/10">
-                        <FileText className="h-5 w-5 text-foreground" />
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/5 border border-foreground/10">
+                        <FileText className="h-4 w-4 text-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-xl font-semibold">Technical Explanation</CardTitle>
-                        <CardDescription className="mt-0.5">
+                        <CardTitle className="text-base font-semibold">Technical Explanation</CardTitle>
+                        <CardDescription className="mt-0 text-xs">
                           For technical deep dives
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-0.5">
                         <Button
                           variant="outline"
                           size="sm"
@@ -1129,12 +1194,12 @@ export default function Home() {
                             handleRefine(output.technicalExplanation, 'technical-explanation', 'make-concise')
                           }}
                           disabled={refining?.type === 'technical-explanation'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'technical-explanation' && refining.action === 'make-concise' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Make concise'
+                            'Concise'
                           )}
                         </Button>
                         <Button
@@ -1144,12 +1209,12 @@ export default function Home() {
                             handleRefine(output.technicalExplanation, 'technical-explanation', 'add-metrics')
                           }}
                           disabled={refining?.type === 'technical-explanation'}
-                          className="h-8 text-xs hover-scale transition-all"
+                          className="h-6 text-xs transition-all px-2"
                         >
                           {refining?.type === 'technical-explanation' && refining.action === 'add-metrics' ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : (
-                            'Add metrics'
+                            'Metrics'
                           )}
                         </Button>
                         <Select
@@ -1158,12 +1223,12 @@ export default function Home() {
                             handleRefine(output.technicalExplanation, 'technical-explanation', value)
                           }}
                         >
-                          <SelectTrigger className="w-[100px] h-8 text-xs" disabled={refining?.type === 'technical-explanation'}>
-                            <SelectValue placeholder="More...">
+                          <SelectTrigger className="w-[70px] h-6 text-xs px-2" disabled={refining?.type === 'technical-explanation'}>
+                            <SelectValue placeholder="More">
                               {refining?.type === 'technical-explanation' ? (
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               ) : (
-                                'More...'
+                                'More'
                               )}
                             </SelectValue>
                           </SelectTrigger>
@@ -1182,28 +1247,22 @@ export default function Home() {
                           const content = getDisplayContent('technical-explanation', output.technicalExplanation) as string
                           copyToClipboard(content, 'technical')
                         }}
-                        className="shrink-0"
+                        className="shrink-0 h-6 w-6 p-0"
                       >
                         {copied === 'technical' ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Copied
-                          </>
+                          <Check className="h-3 w-3" />
                         ) : (
-                          <>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </>
+                          <Copy className="h-3 w-3" />
                         )}
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="fade-in-up" style={{ animationDelay: '0.1s' }}>
+                <CardContent className="fade-in-up pt-3" style={{ animationDelay: '0.1s' }}>
                   {refinedContent['technical-explanation'] && (
-                    <div className="mb-3 p-2 glass rounded-md flex items-center justify-between border-0">
-                      <span className="text-sm text-foreground flex items-center gap-2">
-                        <Check className="h-4 w-4" />
+                    <div className="mb-2 p-1.5 glass rounded-md flex items-center justify-between border-0">
+                      <span className="text-xs text-foreground flex items-center gap-1.5">
+                        <Check className="h-3 w-3" />
                         Refined version
                       </span>
                       <Button
@@ -1216,48 +1275,48 @@ export default function Home() {
                           })
                           toast.info('Reverted to original')
                         }}
-                        className="h-7 text-xs"
+                        className="h-6 text-xs px-2"
                       >
                         Revert
                       </Button>
                     </div>
                   )}
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-base">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm max-h-32 overflow-y-auto">
                     {getDisplayContent('technical-explanation', output.technicalExplanation) as string}
                   </p>
                 </CardContent>
               </Card>
 
               {/* Interview Mode CTA */}
-              <Card className="border-2 border-dashed border-foreground/30 bg-muted/30 card-lift fade-in-up" style={{ animationDelay: '0.6s' }}>
-                <CardContent className="pt-6">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-foreground/10">
-                        <Target className="h-6 w-6 text-foreground" />
+              <Card className="border-2 border-dashed border-foreground/30 bg-muted/30 fade-in-up" style={{ animationDelay: '0.6s' }}>
+                <CardContent className="pt-3 pb-3">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-foreground/10">
+                        <Target className="h-4 w-4 text-foreground" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-foreground">Ready for a Technical Deep Dive?</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Test your understanding of this codebase with AI-powered interview questions
+                        <h3 className="text-sm font-semibold text-foreground">Ready for a Technical Deep Dive?</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Test your understanding with AI-powered interview questions
                         </p>
                       </div>
                     </div>
                     <Button
                       onClick={startInterview}
                       disabled={startingInterview}
-                      className="shrink-0"
-                      size="lg"
+                      className="shrink-0 h-8 text-xs"
+                      size="sm"
                     >
                       {startingInterview ? (
                         <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                           Starting...
                         </>
                       ) : (
                         <>
-                          <Target className="mr-2 h-5 w-5" />
-                          Enter Interview Mode
+                          <Target className="mr-1 h-3 w-3" />
+                          Interview Mode
                         </>
                       )}
                     </Button>
@@ -1268,20 +1327,9 @@ export default function Home() {
           )}
 
           {/* Footer */}
-          <footer className="mt-16 pt-8 border-t text-center text-sm text-muted-foreground">
+          <footer className="mt-12 pt-6 pb-6 border-t text-center text-xs text-muted-foreground">
             <p className="mb-2">
               Built to help developers explain their projects better
-            </p>
-            <p className="text-xs">
-              Optimized for technical resumes and interviews
-              <span className="mx-2">•</span>
-              <span
-                onClick={() => toast.info('Powered by OpenAI GPT-4o-mini')}
-                className="underline hover:text-foreground transition-colors cursor-pointer"
-                title="Click to see model info"
-              >
-                About
-              </span>
             </p>
           </footer>
           </div>
