@@ -122,7 +122,6 @@ GITHUB_TOKEN=ghp_token1
 GITHUB_TOKEN=ghp_token1
 GITHUB_TOKEN_1=ghp_token2
 GITHUB_TOKEN_2=ghp_token3
-# ... up to GITHUB_TOKEN_N
 ```
 
 **Example:** With 3 tokens, you effectively get 15,000 requests/hour (3 × 5,000).
