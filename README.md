@@ -117,7 +117,6 @@ To increase your GitHub API rate limit from 60/hour to 5,000/hour:
 You can use multiple tokens to effectively increase your rate limit. The app will automatically rotate between them:
 
 ```bash
-# Single token (5,000/hour)
 GITHUB_TOKEN=ghp_token1
 
 # Multiple tokens (5,000/hour × number of tokens)
@@ -135,4 +134,3 @@ GITHUB_TOKEN_2=ghp_token3
 - **With 1 Personal Access Token**: 5,000 requests/hour
 - **With N tokens**: 5,000 × N requests/hour (automatically rotated)
 - **With GitHub App**: 15,000 requests/hour (advanced setup, requires app installation)
-
