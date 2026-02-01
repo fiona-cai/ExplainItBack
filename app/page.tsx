@@ -19,9 +19,6 @@ import {
   AlertCircle, 
   Target,
   MessageSquare,
-  Edit,
-  RefreshCw,
-  TrendingUp,
   Award
 } from 'lucide-react'
 
@@ -53,8 +50,6 @@ interface Output {
 type RefineAction = 'make-concise' | 'add-metrics' | 'make-senior' | 'faang-style' | 'more-impact' | 'simplify'
 type RefineType = 'resume-bullets' | 'interview-pitch' | 'technical-explanation'
 
-type InputMethod = 'github'
-
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
 // Token estimation: ~4 characters = 1 token
 const TOKENS_PER_CHAR = 0.25
@@ -74,7 +69,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const [progress, setProgress] = useState<{ message: string; filesFetched?: number; tokens?: number } | null>(null)
   const [rateLimitInfo, setRateLimitInfo] = useState<{ remaining: number; resetTime?: number } | null>(null)
   const [refining, setRefining] = useState<{ type: RefineType; action: RefineAction } | null>(null)
@@ -893,8 +887,8 @@ export default function Home() {
 
           {/* Output Cards - Reordered by value */}
           {output && (
-            <div className="space-y-4 fade-in-up mt-8 max-h-[calc(100vh-250px)] overflow-y-auto" style={{ animationDelay: '0.1s' }}>
-              <div className="relative mb-4 fade-in-up sticky top-0 bg-background/80 backdrop-blur-sm z-10 pb-2" style={{ animationDelay: '0.2s' }}>
+            <div className="space-y-4 fade-in-up mt-8" style={{ animationDelay: '0.1s' }}>
+              <div className="relative mb-4 fade-in-up" style={{ animationDelay: '0.2s' }}>
                 <div className="text-center mb-1">
                   <h2 className="text-lg sm:text-xl font-bold text-foreground gradient-text">Your Results</h2>
                 </div>
@@ -1164,7 +1158,7 @@ export default function Home() {
                       </Button>
                     </div>
                   )}
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm max-h-32 overflow-y-auto">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm">
                     {getDisplayContent('interview-pitch', output.interviewPitch) as string}
                   </p>
                 </CardContent>
@@ -1281,7 +1275,7 @@ export default function Home() {
                       </Button>
                     </div>
                   )}
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm max-h-32 overflow-y-auto">
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap text-xs sm:text-sm">
                     {getDisplayContent('technical-explanation', output.technicalExplanation) as string}
                   </p>
                 </CardContent>
