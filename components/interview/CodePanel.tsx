@@ -90,7 +90,7 @@ export function CodePanel({ snippets, title = 'Related Code' }: CodePanelProps) 
                     ({snippet.endLine - snippet.startLine + 1})
                   </span>
                   {snippet.annotations.length > 0 && (
-                    <span className="text-xs bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded shrink-0">
+                    <span className="text-xs bg-yellow-500/75 text-yellow-700 dark:text-yellow-400 px-1.5 py-0.5 rounded shrink-0">
                       {snippet.annotations.length}
                     </span>
                   )}
