@@ -753,7 +753,7 @@ export default function Home() {
 
           {/* Loading State with Blurred Preview */}
           {loading && (
-            <div className="mt-8 space-y-4 fade-in-up max-h-[calc(100vh-400px)] overflow-y-auto">
+            <div className="mt-8 space-y-4 fade-in-up overflow-visible">
               <div className="relative mb-4 fade-in-up" style={{ animationDelay: '0.1s' }}>
                 <div className="text-center mb-2">
                   <h2 className="text-lg sm:text-xl font-bold text-foreground gradient-text">Your Results</h2>
